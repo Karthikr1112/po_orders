@@ -1,10 +1,10 @@
 from decimal import Decimal
-from django.test import TestCase
+from django.test import TestCase, TransactionTestCase
 from django.contrib.auth.models import User
 from po_sheet.models import Vendor, Buyer, SubCategory, PurchaseOrder, PurchaseOrderItem, AdminBudget
 from po_sheet.views import get_subcategory_remaining_budget
 
-class POTotalsAndBudgetTests(TestCase):
+class POTotalsAndBudgetTests(TransactionTestCase):
     def setUp(self):
         # Create user
         self.user = User.objects.create_user(username='buyer1', password='password123')
