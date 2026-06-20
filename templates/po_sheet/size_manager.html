@@ -1,0 +1,966 @@
+{% extends 'po_sheet/base.html' %}
+{% block title %}Size Manager - Vendor PO System{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+        --success-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        --danger-gradient: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        --luxury-dark: #0f172a;
+        --luxury-glass: rgba(255, 255, 255, 0.95);
+        --luxury-border: rgba(148, 163, 184, 0.2);
+        --shadow-md: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 8px -1px rgba(0, 0, 0, 0.02);
+        --shadow-sm: 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+    }
+
+    .sheet-container {
+        max-width: 1100px;
+        margin: 0.5rem auto;
+        padding: 0 0.75rem;
+    }
+    @media (min-width: 768px) {
+        .sheet-container {
+            margin: 1.5rem auto;
+            padding: 0 1rem;
+        }
+    }
+
+    /* Premium Compact Banner Header */
+    .sheet-header {
+        background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+        padding: 1rem 1.25rem;
+        border-radius: 12px;
+        margin-bottom: 1.25rem;
+        box-shadow: 0 12px 30px -10px rgba(79, 70, 229, 0.25);
+        position: relative;
+        overflow: hidden;
+    }
+    @media (min-width: 768px) {
+        .sheet-header {
+            padding: 1.25rem 1.75rem;
+            border-radius: 16px;
+            margin-bottom: 1.5rem;
+        }
+    }
+
+    .sheet-header::before {
+        content: '';
+        position: absolute;
+        top: -20%;
+        right: -10%;
+        width: 280px;
+        height: 280px;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, transparent 60%);
+        border-radius: 50%;
+        pointer-events: none;
+    }
+
+    .sheet-header h3,
+    .sheet-header p {
+        color: white !important;
+        position: relative;
+        z-index: 1;
+    }
+
+    .sheet-header h3 {
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        font-size: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.15rem !important;
+    }
+
+    .sheet-header p {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.85) !important;
+    }
+
+    .sheet-header .btn-light {
+        background: white;
+        border: none;
+        color: #4f46e5 !important;
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        transition: all 0.2s ease;
+        font-size: 0.85rem;
+    }
+
+    .sheet-header .btn-light:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        background: #f8fafc;
+    }
+
+    /* Modern Glass Card */
+    .sheet-body {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 16px;
+        box-shadow: var(--shadow-md);
+        border: 1px solid var(--luxury-border);
+    }
+    @media (min-width: 768px) {
+        .sheet-body {
+            padding: 2rem;
+        }
+    }
+
+    .form-label {
+        color: #475569;
+        font-weight: 700;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .form-label i {
+        color: #4f46e5;
+        font-size: 0.875rem;
+    }
+
+    /* Custom Fields styling */
+    .form-control {
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 0.55rem 0.85rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        background: #f8fafc;
+        color: #1e293b;
+    }
+
+    .form-control::placeholder {
+        color: #94a3b8;
+    }
+
+    .form-control:focus {
+        border-color: #4f46e5;
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+        background: white;
+        outline: none;
+    }
+
+    .input-helper-text {
+        color: #64748b;
+        font-size: 0.75rem;
+        margin-top: 0.4rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    .input-helper-text i {
+        color: #3b82f6;
+        font-size: 0.8rem;
+    }
+
+    /* Premium Button styling */
+    .btn-primary {
+        background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+        border: none;
+        border-radius: 8px;
+        padding: 0.55rem 1.25rem;
+        font-weight: 600;
+        box-shadow: 0 4px 12px -2px rgba(79, 70, 229, 0.25);
+        transition: all 0.2s ease;
+        font-size: 0.875rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(79, 70, 229, 0.35);
+        color: white;
+    }
+
+    .btn-primary:active {
+        transform: translateY(0);
+    }
+
+    .section-divider {
+        margin: 1.5rem 0;
+        border: none;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, #e2e8f0 50%, transparent);
+    }
+
+    /* Sizes Section Card */
+    .sizes-section {
+        background: #f8fafc;
+        padding: 1.5rem;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        min-height: 200px;
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.01);
+    }
+
+    .section-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.25rem;
+        font-size: 0.875rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #475569;
+        border-bottom: 1px solid #cbd5e1;
+        padding-bottom: 0.5rem;
+    }
+
+    .section-title span:first-child {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .section-title span:first-child::before {
+        content: '';
+        width: 3px;
+        height: 14px;
+        background: #4f46e5;
+        border-radius: 1px;
+    }
+
+    .section-title .badge {
+        font-size: 0.75rem;
+        font-weight: 700;
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        background-color: #4f46e5 !important;
+        box-shadow: 0 2px 6px rgba(79, 70, 229, 0.15);
+    }
+
+    #sizeList {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        min-height: 80px;
+        align-items: flex-start;
+    }
+
+    /* Custom Size Badge Styling */
+    .size-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.45rem 0.75rem;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #1e293b;
+        transition: all 0.2s ease;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .size-badge:hover {
+        border-color: #4f46e5;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 10px -2px rgba(79, 70, 229, 0.12);
+        background: #f8fafc;
+    }
+
+    .size-badge .badge-text {
+        color: #1e293b;
+        font-weight: 600;
+    }
+
+    .remove-size-btn {
+        background: #fef2f2;
+        color: #ef4444;
+        border: none;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        padding: 0;
+    }
+
+    .remove-size-btn:hover {
+        background: #ef4444;
+        color: white;
+        transform: rotate(90deg);
+    }
+
+    /* Custom Empty State Illustration style */
+    .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 3rem 1.5rem;
+        color: #94a3b8;
+        text-align: center;
+        width: 100%;
+        background: rgba(255, 255, 255, 0.6);
+        border: 1.5px dashed #cbd5e1;
+        border-radius: 12px;
+    }
+
+    .empty-state i {
+        font-size: 2.5rem;
+        color: #cbd5e1;
+        margin-bottom: 0.75rem;
+        background: #f1f5f9;
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        box-shadow: inset 0 1px 2px rgba(0,0,0,0.01);
+    }
+
+    .empty-state-text {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #64748b;
+    }
+
+    /* Premium Toast Notification */
+    .toast-notification {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        padding: 0.85rem 1.25rem;
+        border-radius: 12px;
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+        animation: slideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        font-weight: 600;
+        min-width: 280px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .toast-success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+    }
+
+    .toast-error {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+    }
+
+    .toast-close {
+        margin-left: auto;
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        color: white;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        font-size: 0.75rem;
+    }
+
+    .toast-close:hover {
+        background: rgba(255, 255, 255, 0.35);
+    }
+
+    /* Auto-complete Dropdown Result List */
+    #sizeSubcategoryDropdown.search-results,
+    #sizeInputDropdown.search-results {
+        max-height: 300px;
+        overflow-y: auto;
+        position: absolute;
+        z-index: 1050;
+        background: white;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.08);
+        width: 100%;
+        margin-top: 0.35rem;
+        display: none;
+        padding: 0.35rem 0;
+    }
+
+    #sizeSubcategoryDropdown .search-item,
+    #sizeInputDropdown .search-item {
+        padding: 0.65rem 1rem;
+        cursor: pointer;
+        border-bottom: 1px solid #f1f5f9;
+        transition: all 0.15s ease;
+        font-size: 0.85rem;
+    }
+
+    #sizeSubcategoryDropdown .search-item:last-child,
+    #sizeInputDropdown .search-item:last-child {
+        border-bottom: none;
+    }
+
+    #sizeSubcategoryDropdown .search-item:hover,
+    #sizeInputDropdown .search-item:hover {
+        background-color: #f1f5f9;
+        padding-left: 1.2rem;
+        color: #4f46e5;
+    }
+
+    #sizeSubcategoryDropdown .search-item .fw-bold {
+        font-weight: 700;
+        color: #1e293b;
+    }
+
+    @keyframes slideIn {
+        from {
+            transform: translateX(350px);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(350px);
+            opacity: 0;
+        }
+    }
+
+    .spinner-border-custom {
+        width: 16px;
+        height: 16px;
+        border-width: 2px;
+    }
+
+    @media (max-width: 768px) {
+        .sheet-container {
+            margin: 0.5rem auto;
+            padding: 0 0.5rem;
+        }
+        .sheet-header {
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .sheet-body {
+            padding: 1rem;
+        }
+        .size-badge {
+            font-size: 0.8rem;
+            padding: 0.35rem 0.55rem;
+        }
+    }
+
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.03); }
+    }
+
+    .size-badge-new {
+        animation: pulse 0.4s ease;
+    }
+
+    #sizeSubcategoryDropdown .search-item .small,
+    #sizeInputDropdown .search-item .small {
+        font-size: 0.75rem;
+        margin: 0.1rem 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sheet-container">
+    <!-- Header Section -->
+    <div class="sheet-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h3 class="mb-1">
+                    <i class="bi bi-rulers me-2"></i>Size Manager
+                </h3>
+                <p class="mb-0 opacity-75">Manage sizes for your product subcategories</p>
+            </div>
+            <a href="{% url 'po_sheet' %}" class="btn btn-light btn-sm px-4">
+                <i class="bi bi-arrow-left me-2"></i>Back to PO
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="sheet-body">
+        <!-- Input Section -->
+        <div class="row g-4">
+            <div class="col-lg-5">
+                <label class="form-label">
+                    <i class="bi bi-tag me-2"></i>Select Subcategory
+                </label>
+                <div style="position: relative;">
+                    <input type="text" class="form-control" id="sizeSubcategorySearch"
+                        placeholder="Search by name or CH4 code..." title="Search by subcategory name or CH4 code">
+                    <div id="sizeSubcategoryDropdown" class="search-results"></div>
+                </div>
+                <div class="input-helper-text">
+                    <i class="bi bi-info-circle"></i>
+                    <span>Click to see all products, or search by name/CH4 code</span>
+                </div>
+                <select class="form-select d-none" id="sizeSubcategorySelect">
+                    <option value="">Choose a subcategory...</option>
+                    <optgroup label="MSSQL Subcategories">
+                    </optgroup>
+                </select>
+            </div>
+
+            <div class="col-lg-7">
+                <label class="form-label">
+                    <i class="bi bi-plus-circle me-2"></i>Add Sizes
+                </label>
+                <div style="position: relative;">
+                    <input type="text" class="form-control" id="manualSizeInput"
+                        placeholder="e.g., XL, L, M, S or 32, 34, 36...">
+                    <div id="sizeInputDropdown" class="search-results"></div>
+                </div>
+                <div class="input-helper-text">
+                    <i class="bi bi-info-circle"></i>
+                    <span>Type to search or enter custom sizes (comma separated)</span>
+                </div>
+                <button type="button" class="btn btn-primary mt-2" id="saveSizesBtn">
+                    <i class="bi bi-check-circle me-2"></i>Save Sizes
+                </button>
+            </div>
+        </div>
+
+        <!-- Section Divider -->
+        <hr class="section-divider">
+
+        <!-- Sizes Display Section -->
+        <div class="sizes-section">
+            <div class="section-title">
+                <span>Available Sizes</span>
+                <span class="badge bg-primary" id="sizeCount" style="display:none;">0</span>
+            </div>
+            <div id="sizeList">
+                <div class="empty-state">
+                    <i class="bi bi-inbox"></i>
+                    <div class="empty-state-text">
+                        Select a subcategory to view and manage sizes
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function showToast(message, type = 'success') {
+        // Remove existing toasts
+        $('.toast-notification').remove();
+
+        const icon = type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-circle-fill';
+        const toastClass = type === 'success' ? 'toast-success' : 'toast-error';
+
+        const toast = $(`
+            <div class="toast-notification ${toastClass}">
+                <i class="bi ${icon}"></i>
+                <span>${message}</span>
+                <button class="toast-close">&times;</button>
+            </div>
+        `);
+
+        $('body').append(toast);
+
+        // Auto remove after 3 seconds
+        setTimeout(() => {
+            toast.css('animation', 'slideOut 0.3s ease');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+
+        // Manual close
+        toast.find('.toast-close').on('click', function () {
+            toast.css('animation', 'slideOut 0.3s ease');
+            setTimeout(() => toast.remove(), 300);
+        });
+    }
+
+    function renderSizes(list) {
+        if (!list || list.length === 0) {
+            $('#sizeList').html(`
+                <div class="empty-state">
+                    <i class="bi bi-inbox"></i>
+                    <div class="empty-state-text">
+                        No sizes added yet. Add your first size above!
+                    </div>
+                </div>
+            `);
+            $('#sizeCount').hide();
+            return;
+        }
+
+        const html = list.map(s => `
+            <div class="size-badge size-badge-new">
+                <span class="badge-text">${s.name}</span>
+                <button type="button" 
+                        class="remove-size-btn" 
+                        data-size-id="${s.id}"
+                        title="Remove ${s.name}">
+                    &times;
+                </button>
+            </div>
+        `).join('');
+
+        $('#sizeList').html(html);
+        $('#sizeCount').text(list.length).show();
+
+        // Remove animation class after animation completes
+        setTimeout(() => {
+            $('.size-badge-new').removeClass('size-badge-new');
+        }, 500);
+    }
+
+    function setLoading(isLoading) {
+        if (isLoading) {
+            $('#saveSizesBtn').prop('disabled', true).html(`
+                <span class="spinner-border spinner-border-custom me-2" role="status"></span>
+                Saving...
+            `);
+        } else {
+            $('#saveSizesBtn').prop('disabled', false).html(`
+                <i class="bi bi-check-circle me-2"></i>Save Sizes
+            `);
+        }
+    }
+
+    let availableSizes = [];
+
+    // Load sizes when subcategory changes
+    $('#sizeSubcategorySelect').on('change', function () {
+        const id = $(this).val();
+        if (!id) {
+            $('#sizeList').html(`
+                <div class="empty-state">
+                    <i class="bi bi-inbox"></i>
+                    <div class="empty-state-text">
+                        Select a subcategory to view and manage sizes
+                    </div>
+                </div>
+            `);
+            $('#sizeCount').hide();
+            availableSizes = [];
+            return;
+        }
+
+        $.get(`/get-subcategory-sizes/${id}/`, function (res) {
+            if (res.success) {
+                renderSizes(res.sizes);
+                availableSizes = res.sizes;
+            } else {
+                renderSizes([]);
+                availableSizes = [];
+            }
+        });
+        $('#sizeInputDropdown').hide();
+        $('#manualSizeInput').val('');
+    });
+
+    // Save sizes
+    $('#saveSizesBtn').on('click', function () {
+        const subcatId = $('#sizeSubcategorySelect').val();
+        const sizeName = $('#manualSizeInput').val().trim();
+
+        if (!subcatId) {
+            showToast('Please select a subcategory first', 'error');
+            $('#sizeSubcategorySelect').focus();
+            return;
+        }
+
+        if (!sizeName) {
+            showToast('Please enter at least one size', 'error');
+            $('#manualSizeInput').focus();
+            return;
+        }
+
+        const sizes = sizeName.split(',').map(s => s.trim()).filter(Boolean);
+
+        if (sizes.length === 0) {
+            showToast('Please enter valid size names', 'error');
+            return;
+        }
+
+        setLoading(true);
+
+        $.ajax({
+            url: '/add-subcategory-sizes/',
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            contentType: 'application/json',
+            data: JSON.stringify({ subcategory_id: subcatId, sizes: sizes }),
+            success: function (res) {
+                setLoading(false);
+                if (res.success) {
+                    renderSizes(res.sizes);
+                    availableSizes = res.sizes;
+                    $('#manualSizeInput').val('');
+                    const count = sizes.length;
+                    showToast(`Successfully added ${count} size${count > 1 ? 's' : ''}!`, 'success');
+                } else {
+                    showToast(res.error || 'Unable to add sizes', 'error');
+                }
+            },
+            error: function () {
+                setLoading(false);
+                showToast('Network error. Please try again.', 'error');
+            }
+        });
+    });
+
+    // Remove size
+    $(document).on('click', '.remove-size-btn', function () {
+        const subcatId = $('#sizeSubcategorySelect').val();
+        const sizeId = $(this).data('size-id');
+        const sizeName = $(this).prev('.badge-text').text();
+
+        if (!subcatId || !sizeId) {
+            showToast('Please select a subcategory first', 'error');
+            return;
+        }
+
+        if (!confirm(`Remove size "${sizeName}"?`)) {
+            return;
+        }
+
+        $.ajax({
+            url: '/remove-subcategory-size/',
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            contentType: 'application/json',
+            data: JSON.stringify({ subcategory_id: subcatId, size_id: sizeId }),
+            success: function (res) {
+                if (res.success) {
+                    renderSizes(res.sizes);
+                    availableSizes = res.sizes;
+                    showToast(`Size "${sizeName}" removed successfully`, 'success');
+                } else {
+                    showToast(res.error || 'Unable to remove size', 'error');
+                }
+            },
+            error: function () {
+                showToast('Network error. Please try again.', 'error');
+            }
+        });
+    });
+
+    // Enter key to save
+    $('#manualSizeInput').on('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            $('#saveSizesBtn').click();
+        }
+    });
+
+    // Auto-focus input when subcategory selected
+    $('#sizeSubcategorySelect').on('change', function () {
+        if ($(this).val()) {
+            setTimeout(() => $('#manualSizeInput').focus(), 100);
+        }
+    });
+
+    let xhrSubcategory = null;
+
+    function fetchAndRenderSubcategories(query) {
+        if (xhrSubcategory) {
+            xhrSubcategory.abort();
+        }
+
+        // Show a searching text inside the dropdown
+        $('#sizeSubcategoryDropdown').html('<div class="search-item text-muted"><i class="bi bi-hourglass-split me-1"></i>Searching...</div>').show();
+
+        xhrSubcategory = $.ajax({
+            url: '/search-subcategory/',
+            method: 'GET',
+            data: { q: query },
+            success: function(res) {
+                if (res.subcategories) {
+                    // Show only first 10 items
+                    const items = res.subcategories.slice(0, 10);
+                    renderDropdown(items);
+                } else {
+                    renderDropdown([]);
+                }
+            },
+            error: function(xhr, status, err) {
+                if (status !== 'abort') {
+                    renderDropdown([]);
+                }
+            }
+        });
+    }
+
+    function renderDropdown(items) {
+        if (items.length === 0) {
+            $('#sizeSubcategoryDropdown').html('<div class="search-item text-muted">No matches found</div>').show();
+            return;
+        }
+        const html = items.map(item => `
+            <div class="search-item" data-id="${item.id}" data-ch4="${item.ch4_code || ''}">
+                <div class="fw-bold">${item.name}</div>
+                <div class="small text-muted">${item.category}${item.ch4_code ? ' | CH4: ' + item.ch4_code : ''}</div>
+            </div>
+        `).join('');
+        $('#sizeSubcategoryDropdown').html(html).show();
+    }
+
+    // Search and filter (by name or CH4 code) via AJAX
+    $('#sizeSubcategorySearch').on('input', function () {
+        const term = $(this).val().trim();
+        if (!term) {
+            $('#sizeSubcategoryDropdown').hide();
+            return;
+        }
+        fetchAndRenderSubcategories(term);
+    });
+
+    // Show dropdown on focus (first 10 products via AJAX)
+    $('#sizeSubcategorySearch').on('focus', function () {
+        const term = $(this).val().trim();
+        fetchAndRenderSubcategories(term);
+    });
+
+    // Select item from dropdown
+    $(document).on('click', '#sizeSubcategoryDropdown .search-item', function () {
+        const id = $(this).data('id');
+        const name = $(this).find('.fw-bold').text();
+        const ch4 = $(this).data('ch4') || '';
+        if (id) {
+            // Check if option already exists in the select, if not add it dynamically
+            if ($(`#sizeSubcategorySelect option[value="${id}"]`).length === 0) {
+                $('#sizeSubcategorySelect optgroup').append(
+                    $('<option>', {
+                        value: id,
+                        text: name,
+                        'data-ch4-code': ch4
+                    })
+                );
+            }
+            $('#sizeSubcategorySelect').val(String(id)).trigger('change');
+            $('#sizeSubcategorySearch').val(name);
+            $('#sizeSubcategoryDropdown').hide();
+        }
+    });
+
+    // Hide dropdown when clicking outside
+    $(document).on('click', function (e) {
+        if (!$(e.target).closest('#sizeSubcategorySearch, #sizeSubcategoryDropdown').length) {
+            $('#sizeSubcategoryDropdown').hide();
+        }
+    });
+
+    function renderSizeDropdown(items) {
+        if (items.length === 0) {
+            $('#sizeInputDropdown').html('<div class="search-item">No matches found</div>').show();
+            return;
+        }
+        const html = items.map(item =>
+            `<div class="search-item" data-size-name="${item.name}">${item.name}</div>`
+        ).join('');
+        $('#sizeInputDropdown').html(html).show();
+    }
+
+    // Show size suggestions on input
+    $('#manualSizeInput').on('input', function () {
+        const inputVal = $(this).val().trim();
+        if (!inputVal) {
+            if (availableSizes.length > 0) {
+                renderSizeDropdown(availableSizes.slice(0, 10));
+            } else {
+                $('#sizeInputDropdown').hide();
+            }
+            return;
+        }
+
+        // Parse comma-separated input and filter based on last item
+        const items = inputVal.split(',');
+        const lastItem = items[items.length - 1].trim().toLowerCase();
+
+        if (lastItem) {
+            const filtered = availableSizes.filter(s => s.name.toLowerCase().indexOf(lastItem) !== -1);
+            renderSizeDropdown(filtered.slice(0, 10));
+        } else {
+            renderSizeDropdown(availableSizes.slice(0, 10));
+        }
+    });
+
+    // Show dropdown on focus
+    $('#manualSizeInput').on('focus', function () {
+        if (availableSizes.length > 0) {
+            renderSizeDropdown(availableSizes.slice(0, 10));
+        }
+    });
+
+    // Click suggestion to add to input
+    $(document).on('click', '#sizeInputDropdown .search-item', function () {
+        const sizeName = $(this).data('size-name');
+        const currentVal = $('#manualSizeInput').val().trim();
+
+        if (currentVal) {
+            const items = currentVal.split(',');
+            items[items.length - 1] = sizeName;
+            $('#manualSizeInput').val(items.join(', ') + ', ');
+        } else {
+            $('#manualSizeInput').val(sizeName + ', ');
+        }
+
+        $('#sizeInputDropdown').hide();
+        $('#manualSizeInput').focus();
+    });
+
+    // Hide size dropdown outside click
+    $(document).on('click', function (e) {
+        if (!$(e.target).closest('#manualSizeInput, #sizeInputDropdown').length) {
+            $('#sizeInputDropdown').hide();
+        }
+    });
+</script>
+{% endblock %}
+</document_content>

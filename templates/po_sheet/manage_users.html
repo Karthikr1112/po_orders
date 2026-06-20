@@ -1,0 +1,332 @@
+{% extends 'po_sheet/base.html' %}
+
+{% block title %}User Management - Vendor PO System{% endblock %}
+
+{% block content %}
+<style>
+    /* Luxury Card styling */
+    .luxury-card {
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        margin-bottom: 24px;
+        overflow: hidden;
+    }
+
+    .luxury-card-header {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        padding: 15px 20px;
+        border-bottom: 1px solid #e2e8f0;
+        font-weight: 700;
+        color: #1e293b;
+        font-size: 0.95rem;
+    }
+
+    .luxury-card-body {
+        padding: 20px;
+    }
+
+    /* Grid Table styling */
+    .sheet-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .sheet-table th {
+        background-color: #f1f5f9;
+        color: #475569;
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.05em;
+        padding: 12px 10px;
+        border-bottom: 2px solid #cbd5e1;
+        text-align: left;
+    }
+
+    .sheet-table td {
+        padding: 12px 10px;
+        border-bottom: 1px solid #e2e8f0;
+        vertical-align: middle;
+    }
+
+    .sheet-table tbody tr:hover {
+        background-color: rgba(79, 70, 229, 0.03);
+    }
+
+    .btn-indigo {
+        background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+        color: #fff;
+        border: none;
+        transition: all 0.2s;
+    }
+    .btn-indigo:hover {
+        background: linear-gradient(135deg, #3730a3 0%, #2e268f 100%);
+        color: #fff;
+        transform: translateY(-1px);
+    }
+
+    .badge-staff {
+        background-color: #e0e7ff;
+        color: #4338ca;
+        font-weight: 700;
+    }
+
+    .badge-buyer {
+        background-color: #f1f5f9;
+        color: #475569;
+        font-weight: 600;
+    }
+
+    .badge-active {
+        background-color: #d1fae5;
+        color: #065f46;
+        font-weight: 700;
+    }
+
+    .badge-inactive {
+        background-color: #fee2fee2;
+        color: #991b1b;
+        font-weight: 700;
+    }
+</style>
+
+<div class="container-fluid p-2 p-md-4">
+    
+    <!-- HEADER -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h4 class="fw-bold text-dark mb-1"><i class="bi bi-people-fill me-2 text-indigo"></i>User Management</h4>
+            <p class="text-muted small mb-0">Create, edit, and manage application users and their permissions.</p>
+        </div>
+        <div>
+            <button type="button" class="btn btn-indigo" data-bs-toggle="modal" data-bs-target="#userModal" onclick="prepareCreateModal()">
+                <i class="bi bi-person-plus-fill me-1"></i>Add New User
+            </button>
+        </div>
+    </div>
+
+    <!-- MAIN GRID -->
+    <div class="luxury-card">
+        <div class="luxury-card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-table me-2 text-indigo"></i>Registered Users</span>
+            <span class="badge bg-light text-dark border">{{ users.count }} Users</span>
+        </div>
+        <div class="luxury-card-body p-0">
+            <div class="table-responsive">
+                <table class="sheet-table mb-0" id="usersTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 5%">#</th>
+                            <th style="width: 20%">Username</th>
+                            <th style="width: 20%">Full Name</th>
+                            <th style="width: 20%">Email</th>
+                            <th style="width: 12%">Role</th>
+                            <th style="width: 10%">Status</th>
+                            <th style="width: 13%" class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in users %}
+                        <tr>
+                            <td class="align-middle text-center fw-bold text-muted">{{ forloop.counter }}</td>
+                            <td class="align-middle fw-bold text-dark">{{ u.username }}</td>
+                            <td class="align-middle text-dark">{{ u.get_full_name|default:"—" }}</td>
+                            <td class="align-middle text-muted">{{ u.email|default:"—" }}</td>
+                            <td class="align-middle">
+                                {% if u.is_superuser %}
+                                    <span class="badge bg-dark text-white">Superuser</span>
+                                {% elif u.is_staff %}
+                                    <span class="badge badge-staff">Admin</span>
+                                {% else %}
+                                    <span class="badge badge-buyer">Buyer</span>
+                                {% endif %}
+                            </td>
+                            <td class="align-middle">
+                                {% if u.is_active %}
+                                    <span class="badge badge-active"><i class="bi bi-check-circle-fill me-1"></i>Active</span>
+                                {% else %}
+                                    <span class="badge bg-danger text-white"><i class="bi bi-x-circle-fill me-1"></i>Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td class="align-middle text-center">
+                                <div class="d-flex justify-content-center gap-2">
+                                    <button type="button" class="btn btn-sm btn-indigo py-1 px-2.5"
+                                            onclick="prepareEditModal('{{ u.id }}', '{{ u.username }}', '{{ u.first_name }}', '{{ u.last_name }}', '{{ u.email }}', '{{ u.is_staff|yesno:'true,false' }}', '{{ u.is_active|yesno:'true,false' }}')">
+                                        <i class="bi bi-pencil-square me-1"></i>Edit
+                                    </button>
+                                    {% if u != request.user %}
+                                    <button type="button" class="btn btn-sm btn-outline-danger py-1 px-2.5"
+                                            onclick="confirmDelete('{{ u.id }}', '{{ u.username }}')">
+                                        <i class="bi bi-trash3-fill me-1"></i>Delete
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">No users found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- USER FORM MODAL (CREATE/EDIT) -->
+<div class="modal fade" id="userModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-indigo text-white">
+                <h5 class="modal-title fw-bold" id="modalTitle"><i class="bi bi-person-plus-fill me-2"></i>Add New User</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" id="userForm">
+                {% csrf_token %}
+                <input type="hidden" name="action" id="formAction" value="create">
+                <input type="hidden" name="user_id" id="formUserId">
+                
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small text-uppercase">Username *</label>
+                        <input type="text" class="form-control" name="username" id="fieldUsername" required placeholder="Enter username...">
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-muted small text-uppercase">First Name</label>
+                            <input type="text" class="form-control" name="first_name" id="fieldFirstName" placeholder="First name...">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-muted small text-uppercase">Last Name</label>
+                            <input type="text" class="form-control" name="last_name" id="fieldLastName" placeholder="Last name...">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small text-uppercase">Email Address</label>
+                        <input type="email" class="form-control" name="email" id="fieldEmail" placeholder="Enter email...">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small text-uppercase" id="passwordLabel">Password *</label>
+                        <input type="password" class="form-control" name="password" id="fieldPassword" required placeholder="Enter password...">
+                        <small class="text-muted" id="passwordHelp" style="display:none;">Leave blank to keep current password.</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small text-uppercase">Role *</label>
+                        <select class="form-select" name="role" id="fieldRole" required>
+                            <option value="buyer">Buyer</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                        <small class="text-muted" style="font-size:0.75rem;">Admins can manage budgets, templates and other users. Buyers can create POs.</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="is_active" id="fieldIsActive" value="true" checked>
+                            <label class="form-check-label fw-bold text-dark" for="fieldIsActive">Active Status</label>
+                            <div class="small text-muted" style="font-size:0.75rem;">Can log in and use the system.</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-indigo" id="submitBtn"><i class="bi bi-check-circle me-1"></i>Save User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- DELETE CONFIRMATION MODAL -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i>Confirm Delete</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the user <strong id="deleteUsername"></strong>?</p>
+                <p class="text-danger small mb-0"><i class="bi bi-info-circle me-1"></i>This action is permanent and cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <a href="" id="deleteLink" class="btn btn-danger"><i class="bi bi-trash3-fill me-1"></i>Delete User</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    function prepareCreateModal() {
+        document.getElementById('modalTitle').innerHTML = '<i class="bi bi-person-plus-fill me-2"></i>Add New User';
+        document.getElementById('formAction').value = 'create';
+        document.getElementById('formUserId').value = '';
+        
+        document.getElementById('fieldUsername').value = '';
+        document.getElementById('fieldFirstName').value = '';
+        document.getElementById('fieldLastName').value = '';
+        document.getElementById('fieldEmail').value = '';
+        
+        const pwdField = document.getElementById('fieldPassword');
+        pwdField.value = '';
+        pwdField.required = true;
+        pwdField.placeholder = "Enter password...";
+        document.getElementById('passwordLabel').innerHTML = 'Password *';
+        document.getElementById('passwordHelp').style.display = 'none';
+        
+        document.getElementById('fieldRole').value = 'buyer';
+        document.getElementById('fieldIsActive').checked = true;
+        
+        document.getElementById('submitBtn').innerHTML = '<i class="bi bi-check-circle me-1"></i>Save User';
+    }
+
+    function prepareEditModal(id, username, firstName, lastName, email, isStaff, isActive) {
+        document.getElementById('modalTitle').innerHTML = '<i class="bi bi-pencil-square me-2"></i>Edit User';
+        document.getElementById('formAction').value = 'edit';
+        document.getElementById('formUserId').value = id;
+        
+        document.getElementById('fieldUsername').value = username;
+        document.getElementById('fieldFirstName').value = firstName;
+        document.getElementById('fieldLastName').value = lastName;
+        document.getElementById('fieldEmail').value = email;
+        
+        const pwdField = document.getElementById('fieldPassword');
+        pwdField.value = '';
+        pwdField.required = false;
+        pwdField.placeholder = "Enter new password (optional)...";
+        document.getElementById('passwordLabel').innerHTML = 'New Password';
+        document.getElementById('passwordHelp').style.display = 'block';
+        
+        document.getElementById('fieldRole').value = (isStaff === 'true') ? 'admin' : 'buyer';
+        document.getElementById('fieldIsActive').checked = (isActive === 'true');
+        
+        document.getElementById('submitBtn').innerHTML = '<i class="bi bi-check-circle me-1"></i>Update User';
+        
+        // Open modal
+        const myModal = new bootstrap.Modal(document.getElementById('userModal'));
+        myModal.show();
+    }
+
+    function confirmDelete(id, username) {
+        document.getElementById('deleteUsername').innerText = username;
+        document.getElementById('deleteLink').href = `/delete-user/${id}/`;
+        
+        const deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+        deleteModal.show();
+    }
+</script>
+{% endblock %}

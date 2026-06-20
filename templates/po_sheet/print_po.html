@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Print Purchase Order - {{ po.po_number }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 15mm 15mm 15mm 15mm;
+        }
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            font-size: 11pt;
+            line-height: 1.4;
+            position: relative;
+        }
+        .print-btn-container {
+            padding: 10px;
+            background: #f1f5f9;
+            border-bottom: 1px solid #cbd5e1;
+            text-align: right;
+            margin-bottom: 20px;
+        }
+        .btn-print {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-print:hover {
+            background: #4338ca;
+        }
+        
+        /* Watermark styling for draft PO */
+        {% if po.status == 'draft' %}
+        body::before {
+            content: "DRAFT";
+            position: fixed;
+            top: 40%;
+            left: 15%;
+            font-size: 110pt;
+            color: rgba(220, 38, 38, 0.08);
+            transform: rotate(-35deg);
+            font-weight: bold;
+            z-index: -1000;
+            pointer-events: none;
+            letter-spacing: 10px;
+        }
+        {% endif %}
+
+        .po-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 10px;
+        }
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        .company-name {
+            font-size: 20pt;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: #1e293b;
+            text-transform: uppercase;
+        }
+        .company-group {
+            font-size: 11pt;
+            font-weight: 600;
+            color: #64748b;
+        }
+        .header-meta {
+            text-align: right;
+            font-size: 9pt;
+            color: #475569;
+        }
+        .title-bar {
+            text-align: center;
+            font-size: 15pt;
+            font-weight: bold;
+            margin: 15px 0;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: #0f172a;
+        }
+        .info-grid {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .info-grid td {
+            vertical-align: top;
+            width: 50%;
+            padding: 5px 0;
+        }
+        .info-card {
+            border: 1px solid #e2e8f0;
+            padding: 12px;
+            border-radius: 6px;
+            min-height: 110px;
+            background: #fafbfd;
+        }
+        .info-card-title {
+            font-size: 9pt;
+            font-weight: bold;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 3px;
+        }
+        .info-card p {
+            margin: 4px 0;
+            font-size: 10pt;
+        }
+        .po-meta-table {
+            width: 100%;
+            font-size: 10pt;
+        }
+        .po-meta-table td {
+            padding: 3px 0;
+            width: auto;
+        }
+        .po-meta-label {
+            font-weight: bold;
+            color: #475569;
+            width: 100px;
+        }
+
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            margin-bottom: 20px;
+        }
+        .items-table th {
+            background-color: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            padding: 8px 6px;
+            font-size: 9pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #334155;
+            text-align: center;
+        }
+        .items-table td {
+            border: 1px solid #cbd5e1;
+            padding: 8px 6px;
+            font-size: 9.5pt;
+            text-align: center;
+        }
+        .items-table td.left {
+            text-align: left;
+            padding-left: 8px;
+        }
+        .items-table tr:nth-child(even) {
+            background-color: #fafbfd;
+        }
+        .totals-section {
+            width: 100%;
+            margin-top: 15px;
+            border-collapse: collapse;
+        }
+        .totals-section td {
+            vertical-align: top;
+        }
+        .remarks-box {
+            border: 1px solid #cbd5e1;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 9.5pt;
+            min-height: 80px;
+            background: #fafbfd;
+        }
+        .remarks-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #475569;
+            text-transform: uppercase;
+            font-size: 8.5pt;
+        }
+        .totals-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10.5pt;
+        }
+        .totals-table td {
+            padding: 6px 10px;
+            border: 1px solid #cbd5e1;
+        }
+        .totals-table .label {
+            font-weight: bold;
+            background: #f8fafc;
+            text-align: right;
+            width: 140px;
+        }
+        .totals-table .val {
+            text-align: right;
+            font-weight: bold;
+            color: #0f172a;
+        }
+
+        /* Delivery schedules in Print */
+        .schedule-box {
+            margin-top: 15px;
+            border: 1px solid #cbd5e1;
+            padding: 10px;
+            border-radius: 4px;
+            background: #fafbfd;
+        }
+        .schedule-item {
+            font-size: 9pt;
+            padding: 4px 0;
+            border-bottom: 1px dashed #e2e8f0;
+        }
+        .schedule-item:last-child {
+            border-bottom: none;
+        }
+
+        .signatures-container {
+            margin-top: 50px;
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .signatures-container td {
+            width: 33.33%;
+            text-align: center;
+            font-size: 9.5pt;
+            padding-top: 50px;
+            vertical-align: bottom;
+        }
+        .sig-line {
+            width: 80%;
+            margin: 0 auto 8px auto;
+            border-top: 1px solid #94a3b8;
+        }
+        .sig-label {
+            font-weight: bold;
+            color: #475569;
+        }
+
+        .footer-note {
+            text-align: center;
+            font-size: 8pt;
+            color: #94a3b8;
+            margin-top: 40px;
+            border-top: 1px dashed #e2e8f0;
+            padding-top: 10px;
+        }
+
+        @media print {
+            .print-btn-container {
+                display: none;
+            }
+            body {
+                margin: 0;
+                padding: 0;
+            }
+            .po-container {
+                max-width: 100%;
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="print-btn-container">
+        <button class="btn-print" onclick="window.print()">Print Document</button>
+    </div>
+
+    <div class="po-container">
+        <!-- HEADER -->
+        <table class="header-table">
+            <tr>
+                <td>
+                    <div class="company-name">JEYARAMA STORES PVT. LTD.</div>
+                    <div class="company-group">JEYACHANDRAN GROUP</div>
+                </td>
+                <td class="header-meta">
+                    <strong>GSTIN:</strong> 33AAAAA0000A1Z5<br>
+                    <strong>Date:</strong> {{ today }}<br>
+                    <strong>Printed:</strong> {{ print_time }}
+                </td>
+            </tr>
+        </table>
+
+        <!-- TITLE -->
+        <div class="title-bar">
+            {% if po.status == 'draft' %}
+                PURCHASE ORDER DRAFT
+            {% else %}
+                PURCHASE ORDER
+            {% endif %}
+        </div>
+
+        <!-- INFO GRID -->
+        <table class="info-grid">
+            <tr>
+                <td style="padding-right: 10px;">
+                    <div class="info-card">
+                        <div class="info-card-title">Vendor Details</div>
+                        {% if po.vendor %}
+                            <p><strong>Name:</strong> {{ po.vendor.vendor_name }} ({{ po.vendor.vendor_code }})</p>
+                            {% if po.vendor.address %}
+                                <p><strong>Address:</strong> {{ po.vendor.address }}, {{ po.vendor.city }}{% if po.vendor.state %}, {{ po.vendor.state }}{% endif %}{% if po.vendor.pin_code %} - {{ po.vendor.pin_code }}{% endif %}</p>
+                            {% endif %}
+                            {% if po.vendor.contact_person %}
+                                <p><strong>Contact Person:</strong> {{ po.vendor.contact_person }}</p>
+                            {% endif %}
+                            {% if po.vendor.phone or po.vendor.email %}
+                                <p><strong>Contact:</strong> {{ po.vendor.phone|default:"" }} {% if po.vendor.phone and po.vendor.email %}|{% endif %} {{ po.vendor.email|default:"" }}</p>
+                            {% endif %}
+                            {% if po.vendor.gst_number %}
+                                <p><strong>GSTIN:</strong> {{ po.vendor.gst_number }}</p>
+                            {% endif %}
+                        {% else %}
+                            <p style="color: #ef4444; font-style: italic;">No vendor selected</p>
+                        {% endif %}
+                    </div>
+                </td>
+                <td style="padding-left: 10px;">
+                    <div class="info-card">
+                        <div class="info-card-title">Order References</div>
+                        <table class="po-meta-table">
+                            <tr>
+                                <td class="po-meta-label">PO Number:</td>
+                                <td><strong>{{ po.po_number }}</strong></td>
+                            </tr>
+                            <tr>
+                                <td class="po-meta-label">Status:</td>
+                                <td style="text-transform: capitalize;">{{ po.status }}</td>
+                            </tr>
+                            <tr>
+                                <td class="po-meta-label">Buyer:</td>
+                                <td>{{ po.buyer|default:"--" }}</td>
+                            </tr>
+                            <tr>
+                                <td class="po-meta-label">Agent:</td>
+                                <td>{{ po.agent|default:"--" }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <!-- ITEMS TABLE -->
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th style="width: 5%">S.No</th>
+                    <th style="width: 40%">SubCategory</th>
+                    <th style="width: 12%">Type</th>
+                    <th style="width: 10%">Ord Qty</th>
+                    <th style="width: 12%">Price(₹)</th>
+                    <th style="width: 8%">Disc%</th>
+                    <th style="width: 11%">Tot Qty</th>
+                    <th style="width: 12%">Tot Amt(₹)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in po_items %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td class="left">{{ item.subcategory.name }}</td>
+                    <td>{{ item.item_type }}</td>
+                    <td>{{ item.order_qty }}</td>
+                    <td>{{ item.unit_price }}</td>
+                    <td>{{ item.discount_percentage }}%</td>
+                    <td><strong>{{ item.tot_qty }}</strong></td>
+                    <td><strong>{{ item.tot_amt }}</strong></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" style="color: #94a3b8; font-style: italic;">No items added to this purchase order</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- BOTTOM SECTION -->
+        <table class="totals-section">
+            <tr>
+                <td style="width: 55%; padding-right: 15px;">
+                    <div class="remarks-box">
+                        <div class="remarks-title">Remarks</div>
+                        {{ po.notes|default:"No remarks specified." }}
+                    </div>
+
+                    {% if po.delivery_schedules %}
+                    <div class="schedule-box">
+                        <div class="remarks-title">Delivery Schedule</div>
+                        {% for sch in po.delivery_schedules %}
+                        <div class="schedule-item">
+                            <strong>Sch {{ forloop.counter }}:</strong> From {{ sch.from }} To {{ sch.to }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </td>
+                <td style="width: 45%;">
+                    <table class="totals-table">
+                        <tr>
+                            <td class="label">Total Quantity</td>
+                            <td class="val">{{ po.total_quantity }}</td>
+                        </tr>
+                        <tr>
+                            <td class="label">Subtotal</td>
+                            <td class="val">₹{{ subtotal }}</td>
+                        </tr>
+                        <tr>
+                            <td class="label" style="background: #e2e8f0; font-size: 11pt;">Grand Total</td>
+                            <td class="val" style="background: #f1f5f9; font-size: 12pt; color: #1e1b4b;">₹{{ po.grand_total }}</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+
+        <!-- SIGNATURES -->
+        <table class="signatures-container">
+            <tr>
+                <td>
+                    <div class="sig-line"></div>
+                    <div class="sig-label">Prepared By</div>
+                </td>
+                <td>
+                    <div class="sig-line"></div>
+                    <div class="sig-label">Authorised Signatory</div>
+                </td>
+                <td>
+                    <div class="sig-line"></div>
+                    <div class="sig-label">Vendor Acknowledgement</div>
+                </td>
+            </tr>
+        </table>
+
+        <!-- FOOTER -->
+        <div class="footer-note">
+            This is a computer-generated document. No signature required for validation.
+        </div>
+    </div>
+
+</body>
+</html>

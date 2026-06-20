@@ -1,0 +1,720 @@
+{% extends 'po_sheet/base.html' %}
+{% block title %}All Records — Vendor PO System{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Page layout ── */
+.rec-page {
+    padding: 0.5rem 0.5rem 2rem;
+    background: #f8fafc;
+    min-height: calc(100vh - 0px);
+}
+@media (min-width: 768px) {
+    .rec-page {
+        padding: 1.75rem 1.75rem 3rem;
+    }
+}
+@media (max-width: 768px) {
+    .rec-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .rec-field-wrap {
+        min-width: 100%;
+        width: 100%;
+    }
+    .rec-toolbar > div:last-child {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+    .rec-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* ── toolbar ── */
+.rec-toolbar {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 1.1rem 1.4rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: flex-end;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+.rec-toolbar-title {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.3px;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.rec-toolbar-title span {
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.rec-field-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 170px;
+}
+
+.rec-field-wrap label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #94a3b8;
+}
+
+.rec-input {
+    border: 1.5px solid #e2e8f0;
+    border-radius: 9px;
+    padding: 0.48rem 0.85rem;
+    font-size: 0.82rem;
+    background: #f8fafc;
+    color: #1e293b;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    outline: none;
+    font-family: inherit;
+}
+
+.rec-input:focus {
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124,58,237,0.1);
+    background: #fff;
+}
+
+.rec-search-wrap {
+    flex: 1;
+    min-width: 220px;
+}
+
+.rec-search-inner {
+    position: relative;
+}
+
+.rec-search-inner i {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    font-size: 0.9rem;
+    pointer-events: none;
+}
+
+.rec-search-inner .rec-input {
+    width: 100%;
+    padding-left: 2.1rem;
+}
+
+.rec-btn {
+    padding: 0.5rem 1.1rem;
+    border-radius: 9px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: all 0.18s;
+    white-space: nowrap;
+    font-family: inherit;
+}
+
+.rec-btn-primary {
+    background: var(--primary-gradient);
+    color: #fff;
+    box-shadow: 0 3px 10px rgba(79,70,229,0.25);
+}
+
+.rec-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 5px 14px rgba(79,70,229,0.35); }
+
+.rec-btn-outline {
+    background: #fff;
+    color: #64748b;
+    border: 1.5px solid #e2e8f0;
+}
+
+.rec-btn-outline:hover { border-color: #7c3aed; color: #7c3aed; background: #faf5ff; }
+
+/* ── Summary pills ── */
+.rec-summary {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+    align-items: center;
+}
+
+.rec-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.85rem;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    background: rgba(99,102,241,0.1);
+    color: #4f46e5;
+    border: 1px solid rgba(99,102,241,0.2);
+}
+
+.rec-pill.green { background: rgba(16,185,129,0.1); color: #059669; border-color: rgba(16,185,129,0.2); }
+
+/* ── Table card ── */
+.rec-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+    margin-bottom: 1.75rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.rec-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.rec-card-success {
+    border-left: 4px solid #6366f1 !important; /* Premium Indigo */
+}
+
+.rec-card-warning {
+    border-left: 4px solid #f59e0b !important; /* Warning Amber */
+}
+
+.rec-card-success .rec-po-num i {
+    color: #6366f1;
+}
+
+.rec-card-warning .rec-po-num i {
+    color: #f59e0b;
+}
+
+.rec-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.9rem 1.3rem;
+    border-bottom: 1px solid #f1f5f9;
+    background: #ffffff; /* Clean white card headers */
+    cursor: pointer;
+    user-select: none;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    transition: background-color 0.2s;
+}
+
+.rec-card-header:hover {
+    background: #f8fafc;
+}
+
+.rec-card[data-open="true"] .rec-card-header {
+    background: #f1f5f9;
+}
+
+/* No Vendor Warning Badge */
+.badge-no-vendor {
+    background: #fff5f5;
+    color: #e53e3e;
+    border: 1px solid #fed7d7;
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+/* User badge style */
+.rec-by-badge {
+    background: #f8fafc;
+    color: #475569;
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border: 1px solid #e2e8f0;
+}
+
+/* Grand Total colors */
+.rec-total .amt-positive {
+    color: #059669 !important; /* Emerald green */
+    font-weight: 800;
+    font-size: 1.05rem;
+}
+
+.rec-total .amt-zero {
+    color: #94a3b8 !important; /* Faint Slate */
+    font-weight: 700;
+    font-size: 1.05rem;
+}
+
+.rec-po-num {
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.rec-po-num i { color: #7c3aed; }
+.rec-po-num small { font-size: 0.65rem; font-weight: 400; color: #94a3b8; display: block; margin-top: 1px; }
+
+.rec-vendor-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #475569;
+    min-width: 140px;
+}
+
+.rec-vendor-name span { display: block; font-size: 0.65rem; font-weight: 400; color: #94a3b8; }
+
+.rec-badge-approved {
+    background: #d1fae5;
+    color: #065f46;
+    padding: 0.22rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.67rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+}
+
+.rec-badge-draft {
+    background: #fef3c7;
+    color: #92400e;
+    padding: 0.22rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.67rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+}
+
+.rec-badge-pending {
+    background: #e0f2fe;
+    color: #075985;
+    padding: 0.22rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.67rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+}
+
+.rec-badge-completed {
+    background: #e0e7ff;
+    color: #3730a3;
+    padding: 0.22rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.67rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+}
+
+.rec-by {
+    font-size: 0.72rem;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.rec-total {
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.rec-total .amt { font-size: 0.98rem; font-weight: 800; color: #4f46e5; }
+.rec-total .lbl { font-size: 0.6rem; color: #94a3b8; text-transform: uppercase; }
+
+.rec-chevron { color: #cbd5e1; font-size: 0.8rem; transition: transform 0.2s; }
+.rec-card[data-open="false"] .rec-chevron { transform: rotate(-90deg); }
+
+/* ── Card body ── */
+.rec-card-body { border-top: 1px solid #f1f5f9; }
+
+/* Info grid */
+.rec-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    background: #f8fafc;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.rec-ig-cell {
+    padding: 0.7rem 1.1rem;
+    border-right: 1px solid #f1f5f9;
+}
+
+.rec-ig-cell:last-child { border-right: none; }
+.rec-ig-cell .lbl { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 2px; }
+.rec-ig-cell .val { font-size: 0.82rem; font-weight: 600; color: #1e293b; }
+.rec-ig-cell .val.purple { color: #7c3aed; }
+.rec-ig-cell .val.green  { color: #059669; }
+.rec-ig-cell .val.blue   { color: #4f46e5; }
+
+/* Items table */
+.rec-items-sec { padding: 1rem 1.25rem 1.25rem; }
+.rec-sec-ttl {
+    font-size: 0.63rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #64748b;
+    margin-bottom: 0.65rem;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.rec-sec-ttl .cnt {
+    background: #eef2ff;
+    color: #4f46e5;
+    border-radius: 20px;
+    padding: 0 7px;
+    font-size: 0.63rem;
+    font-weight: 700;
+}
+
+.rec-tbl { width: 100%; border-collapse: collapse; font-size: 0.775rem; }
+.rec-tbl thead th {
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0.6rem 0.85rem;
+    border-bottom: 2px solid #cbd5e1;
+    white-space: nowrap;
+}
+
+.rec-tbl tbody td {
+    padding: 0.65rem 0.85rem;
+    color: #334155;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: middle;
+}
+
+.rec-tbl tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+.rec-tbl tbody tr:last-child td { border-bottom: none; }
+.rec-tbl tfoot td {
+    padding: 0.75rem 0.85rem;
+    font-weight: 700;
+    background: #f8fafc;
+    border-top: 2px solid #cbd5e1;
+    color: #1e293b;
+}
+
+.cat-tag {
+    background: #f1f5f9;
+    color: #475569;
+    border-radius: 5px;
+    padding: 1px 7px;
+    font-size: 0.67rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.sz-chip {
+    display: inline-block;
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    margin: 1px;
+}
+
+/* Empty state */
+.rec-empty {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: #fff;
+    border-radius: 14px;
+    border: 2px dashed #e2e8f0;
+}
+
+.rec-empty i { font-size: 2.5rem; color: #cbd5e1; display: block; margin-bottom: 0.75rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rec-page">
+
+    <!-- Toolbar -->
+    <form method="get" action="">
+        <div class="rec-toolbar">
+            <div style="width:100%;">
+                <div class="rec-toolbar-title">
+                    <i class="bi bi-archive-fill" style="color:#7c3aed;"></i>
+                    <span>All Records</span>
+                    <small style="font-size:0.72rem;font-weight:500;color:#64748b;margin-left:0.25rem;-webkit-text-fill-color:#64748b;">— Purchase Order Records</small>
+                </div>
+            </div>
+
+            <!-- Search -->
+            <div class="rec-field-wrap rec-search-wrap">
+                <label>Search</label>
+                <div class="rec-search-inner">
+                    <i class="bi bi-search"></i>
+                    <input type="text" name="q" class="rec-input" placeholder="PO number, vendor, user…" value="{{ search }}">
+                </div>
+            </div>
+
+            <!-- Vendor filter -->
+            <div class="rec-field-wrap">
+                <label>Vendor</label>
+                <select name="vendor" class="rec-input">
+                    <option value="">All Vendors</option>
+                    {% for v in vendors %}
+                    <option value="{{ v.vendor__vendor_code }}"
+                        {% if vendor_filter == v.vendor__vendor_code %}selected{% endif %}>
+                        {{ v.vendor__vendor_name }} ({{ v.vendor__vendor_code }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Date from -->
+            <div class="rec-field-wrap">
+                <label>From Date</label>
+                <input type="date" name="date_from" class="rec-input" value="{{ date_from }}">
+            </div>
+
+            <!-- Date to -->
+            <div class="rec-field-wrap">
+                <label>To Date</label>
+                <input type="date" name="date_to" class="rec-input" value="{{ date_to }}">
+            </div>
+
+            <div style="display:flex;gap:0.5rem;align-items:flex-end; padding-top:1.2rem;">
+                <button type="submit" class="rec-btn rec-btn-primary">
+                    <i class="bi bi-funnel-fill"></i> Filter
+                </button>
+                <a href="{% url 'all_records' %}" class="rec-btn rec-btn-outline">
+                    <i class="bi bi-x-circle"></i> Clear
+                </a>
+            </div>
+        </div>
+    </form>
+
+    <!-- Summary bar -->
+    <div class="rec-summary">
+        <span class="rec-pill"><i class="bi bi-list-task"></i> {{ total }} order{{ total|pluralize }}</span>
+        {% if search %}<span class="rec-pill green"><i class="bi bi-search"></i> "{{ search }}"</span>{% endif %}
+        {% if vendor_filter %}<span class="rec-pill green"><i class="bi bi-building"></i> {{ vendor_filter }}</span>{% endif %}
+        {% if date_from or date_to %}<span class="rec-pill green"><i class="bi bi-calendar-range"></i> {{ date_from|default:"…" }} → {{ date_to|default:"…" }}</span>{% endif %}
+    </div>
+
+    {% if records %}
+
+        {% for po in records %}
+        <div class="rec-card {% if not po.vendor or po.grand_total == 0 %}rec-card-warning{% else %}rec-card-success{% endif %}" data-open="false">
+
+            <!-- Card header -->
+            <div class="rec-card-header" onclick="recToggle(this)">
+                <div class="rec-po-num">
+                    <i class="bi bi-file-earmark-check-fill"></i>
+                    <div>
+                        {{ po.po_number }}
+                        <small>{{ po.created_at|date:"d M Y, H:i" }}</small>
+                    </div>
+                </div>
+
+                <div class="rec-vendor-name">
+                    {% if po.vendor %}
+                        <span style="font-weight:600; color:#334155;">{{ po.vendor.vendor_name }}</span>
+                        <span style="font-size:0.68rem; color:#64748b; display:block;">{{ po.vendor.vendor_code }}</span>
+                    {% else %}
+                        <span class="badge-no-vendor">
+                            <i class="bi bi-exclamation-triangle-fill"></i> No Vendor
+                        </span>
+                    {% endif %}
+                </div>
+
+                <div class="rec-by">
+                    <span class="rec-by-badge">
+                        <i class="bi bi-person-fill"></i>
+                        {{ po.created_by.get_full_name|default:po.created_by.username }}
+                    </span>
+                </div>
+
+                <div class="rec-total">
+                    <div class="lbl">Grand Total</div>
+                    <div class="amt {% if po.grand_total == 0 %}amt-zero{% else %}amt-positive{% endif %}">₹{{ po.grand_total|floatformat:2 }}</div>
+                </div>
+
+                <a href="{% url 'preview_po' %}?po_id={{ po.id }}" target="_blank" class="rec-btn" onclick="event.stopPropagation();" style="font-size: 0.72rem; padding: 0.35rem 0.7rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.35rem; text-decoration: none; background: #0284c7; color: #fff; box-shadow: 0 2px 6px rgba(2,132,199,0.25); margin-left: 1rem; margin-right: 0.5rem;">
+                    <i class="bi bi-file-earmark-pdf"></i> Preview A4
+                </a>
+                
+                <a href="{% url 'export_po_csv' po.id %}" target="_blank" class="rec-btn" onclick="event.stopPropagation();" style="font-size: 0.72rem; padding: 0.35rem 0.7rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.35rem; text-decoration: none; background: #10b981; color: #fff; box-shadow: 0 2px 6px rgba(16,185,129,0.25); margin-right: 0.5rem;">
+                    <i class="bi bi-file-earmark-excel"></i> Export CSV
+                </a>
+
+                {% if user.is_staff or po.created_by == user %}
+                <a href="{% url 'delete_po' po.id %}" class="rec-btn" onclick="event.stopPropagation(); return confirm('Are you sure you want to delete Purchase Order {{ po.po_number }}?');" style="font-size: 0.72rem; padding: 0.35rem 0.7rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.35rem; text-decoration: none; background: #dc2626; color: #fff; box-shadow: 0 2px 6px rgba(220,38,38,0.25); margin-right: 0.5rem;">
+                    <i class="bi bi-trash3-fill"></i> Delete
+                </a>
+                {% endif %}
+
+                <i class="bi bi-chevron-down rec-chevron"></i>
+            </div>
+
+            <!-- Card body -->
+            <div class="rec-card-body">
+
+                <!-- Info grid removed as requested to avoid repetitive information -->
+
+                <!-- Items table -->
+                <div class="rec-items-sec">
+                    {% if po.notes or po.admin_approved_amount %}
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.8rem 1rem; margin-bottom: 1rem; font-size: 0.75rem;">
+                        {% if po.notes %}
+                        <div style="margin-bottom: {% if po.admin_approved_amount %}0.5rem{% else %}0{% endif %};">
+                            <span style="font-weight:700; color:#64748b; text-transform:uppercase; font-size:0.65rem; margin-right:0.5rem;">Notes:</span>
+                            <span style="color:#334155;">{{ po.notes }}</span>
+                        </div>
+                        {% endif %}
+                        {% if po.admin_approved_amount %}
+                        <div style="display:flex; gap:1.5rem; align-items:center;">
+                            <div>
+                                <span style="font-weight:700; color:#64748b; text-transform:uppercase; font-size:0.65rem; margin-right:0.5rem;">Budget:</span>
+                                <span style="color:#059669; font-weight:600;">₹{{ po.admin_approved_amount|floatformat:2 }}</span>
+                            </div>
+                            {% if po.remaining_budget is not None %}
+                            <div>
+                                <span style="font-weight:700; color:#64748b; text-transform:uppercase; font-size:0.65rem; margin-right:0.5rem;">Remaining:</span>
+                                <span style="font-weight:600; {% if po.remaining_budget >= 0 %}color:#059669;{% else %}color:#dc2626;{% endif %}">₹{{ po.remaining_budget|floatformat:2 }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <div class="rec-sec-ttl">
+                        <i class="bi bi-list-ul"></i>
+                        Order Items
+                        <span class="cnt">{{ po.items.count }}</span>
+                    </div>
+
+                    {% if po.items.all %}
+                    <div style="overflow-x:auto;">
+                        <table class="rec-tbl">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Item / Sub-Category</th>
+                                    <th>CH4 Code</th>
+                                    <th class="text-center">Qty</th>
+                                    <th class="text-end">Unit Price</th>
+                                    <th class="text-end">Line Total</th>
+                                    <th>Sizes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in po.items.all %}
+                                <tr>
+                                    <td style="color:#94a3b8;font-weight:700;">{{ forloop.counter }}</td>
+                                    <td style="font-weight:600;color:#1e293b;">{{ item.subcategory.name }}</td>
+                                    <td style="color:#64748b;">{{ item.subcategory.ch4_code|default:"—" }}</td>
+                                    <td class="text-center" style="font-weight:700;color:#1e293b;">{{ item.tot_qty }}</td>
+                                    <td class="text-end" style="color:#475569;">₹{{ item.unit_price|floatformat:2 }}</td>
+                                    <td class="text-end" style="font-weight:700;color:#1e293b;">₹{{ item.tot_amt|floatformat:2 }}</td>
+                                    <td>
+                                        {% for sz, qty in item.size_allocations.items %}
+                                            <span class="sz-chip">{{ sz }}-{{ qty }}</span>
+                                        {% empty %}
+                                            <span style="color:#cbd5e1;font-size:0.7rem;">—</span>
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3" style="font-size:0.62rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;">Order Total</td>
+                                    <td class="text-center" style="color:#1e293b;">{{ po.total_quantity }}</td>
+                                    <td></td>
+                                    <td class="text-end" style="color:#059669; font-size: 0.9rem;">₹{{ po.grand_total|floatformat:2 }}</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p style="color:#94a3b8;font-size:0.775rem;font-style:italic;">No items found.</p>
+                    {% endif %}
+                </div>
+
+            </div><!-- /.rec-card-body -->
+        </div><!-- /.rec-card -->
+        {% endfor %}
+
+    {% else %}
+    <div class="rec-empty">
+        <i class="bi bi-archive"></i>
+        <h5 style="color:#475569;font-weight:700;margin-bottom:0.5rem;">No Orders Found</h5>
+        <p style="color:#94a3b8;margin-bottom:1.25rem;">
+            {% if search or vendor_filter or date_from or date_to %}
+                No records match your filters. <a href="{% url 'all_records' %}">Clear filters</a>
+            {% else %}
+                No purchase orders have been saved yet.
+            {% endif %}
+        </p>
+    </div>
+    {% endif %}
+
+</div><!-- /.rec-page -->
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    function recToggle(hdr) {
+        const card = hdr.closest('.rec-card');
+        const body = card.querySelector('.rec-card-body');
+        const open = card.dataset.open === 'true';
+        body.style.display = open ? 'none' : '';
+        card.dataset.open = open ? 'false' : 'true';
+    }
+    // All collapsed on load
+    document.querySelectorAll('.rec-card-body').forEach(b => b.style.display = 'none');
+</script>
+{% endblock %}

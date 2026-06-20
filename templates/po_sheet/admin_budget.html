@@ -1,0 +1,392 @@
+{% extends 'po_sheet/base.html' %}
+
+{% block title %}Admin Budget Management - Vendor PO System{% endblock %}
+
+{% block content %}
+<style>
+    /* Luxury Card styling */
+    .luxury-card {
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        margin-bottom: 24px;
+        overflow: hidden;
+    }
+
+    .luxury-card-header {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        padding: 15px 20px;
+        border-bottom: 1px solid #e2e8f0;
+        font-weight: 700;
+        color: #1e293b;
+        font-size: 0.95rem;
+    }
+
+    .luxury-card-body {
+        padding: 20px;
+    }
+
+    /* Grid Table styling */
+    .sheet-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .sheet-table th {
+        background-color: #f1f5f9;
+        color: #475569;
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.05em;
+        padding: 12px 10px;
+        border-bottom: 2px solid #cbd5e1;
+        text-align: left;
+    }
+
+    .sheet-table td {
+        padding: 12px 10px;
+        border-bottom: 1px solid #e2e8f0;
+        vertical-align: middle;
+    }
+
+    .sheet-table tbody tr:hover {
+        background-color: rgba(79, 70, 229, 0.03);
+    }
+
+    .btn-indigo {
+        background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+        color: #fff;
+        border: none;
+        transition: all 0.2s;
+    }
+    .btn-indigo:hover {
+        background: linear-gradient(135deg, #3730a3 0%, #2e268f 100%);
+        color: #fff;
+        transform: translateY(-1px);
+    }
+
+    /* Custom Premium Select Dropdown Styling */
+    .custom-select-container {
+        position: relative;
+        width: 100%;
+    }
+    .custom-select-input {
+        cursor: pointer;
+        background-color: #fff !important;
+        padding-right: 30px !important;
+    }
+    .custom-select-arrow {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        pointer-events: none;
+        font-size: 0.8rem;
+    }
+    .custom-select-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: #fff;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 8px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        max-height: 250px;
+        overflow-y: auto;
+        z-index: 1050;
+        margin-top: 4px;
+        padding: 4px;
+    }
+    .custom-select-option {
+        padding: 8px 12px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        color: #1e293b;
+        border-radius: 6px;
+        transition: background-color 0.15s, color 0.15s;
+    }
+    .custom-select-option:hover {
+        background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%) !important;
+        color: #fff !important;
+        border: none !important;
+    }
+    .custom-select-option.selected {
+        background-color: #f1f5f9;
+        font-weight: 600;
+    }
+</style>
+
+<div class="container-fluid p-2 p-md-4">
+    
+    <!-- HEADER -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="fw-bold text-dark mb-1"><i class="bi bi-cash-coin me-2 text-indigo"></i>Admin Budget Management</h4>
+            <p class="text-muted small mb-0">Configure and track budget allocation by SubCategory instead of Vendor.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <div class="custom-select-container" style="width: 300px;">
+                <input type="text" id="budgetSubcatSelect" class="form-control form-control-sm custom-select-input" placeholder="Search & Select SubCategory..." data-selected-value="">
+                <span class="custom-select-arrow"><i class="bi bi-chevron-down"></i></span>
+                <div class="custom-select-dropdown d-none">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN GRID -->
+    <div class="luxury-card">
+        <div class="luxury-card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-table me-2 text-indigo"></i>SubCategory Budgets</span>
+            <span class="badge bg-light text-dark border">{{ total_budgeted_count }} Items</span>
+        </div>
+        <div class="luxury-card-body p-0">
+            <div class="table-responsive">
+                <table class="sheet-table mb-0" id="budgetTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 5%">#</th>
+                            <th style="width: 40%">Sub-Category</th>
+                            <th style="width: 12%">CH4 Code</th>
+                            <th style="width: 13%" class="text-end">Approved Budget</th>
+                            <th style="width: 13%" class="text-end">Spent Amount</th>
+                            <th style="width: 13%" class="text-end">Balance Budget</th>
+                            <th style="width: 15%">Notes</th>
+                            <th style="width: 9%" class="text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in subcategories %}
+                        <tr class="budget-row">
+                            <td class="align-middle text-center fw-bold text-muted">{{ page_obj.start_index|add:forloop.counter0 }}</td>
+                            <td class="align-middle fw-bold text-dark subcat-name">{{ item.name }}</td>
+                            <td class="align-middle text-muted">{{ item.ch4_code }}</td>
+                            <td class="align-middle text-end fw-bold text-dark">₹{{ item.approved_amount|floatformat:2 }}</td>
+                            <td class="align-middle text-end text-muted">₹{{ item.spent_amount|floatformat:2 }}</td>
+                            <td class="align-middle text-end fw-bold {% if item.balance_amount >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                ₹{{ item.balance_amount|floatformat:2 }}
+                            </td>
+                            <td class="align-middle text-muted small" style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                {{ item.notes|default:'—' }}
+                            </td>
+                            <td class="align-middle text-center">
+                                <button type="button" class="btn btn-sm btn-indigo edit-budget-btn py-1 px-3"
+                                        data-id="{{ item.id }}"
+                                        data-name="{{ item.name }}"
+                                        data-approved="{{ item.approved_amount|floatformat:2 }}"
+                                        data-notes="{{ item.notes }}">
+                                    <i class="bi bi-pencil-square me-1"></i>Edit
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-muted">No subcategories found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="card-footer bg-white border-top d-flex justify-content-between align-items-center py-3">
+            <div class="small text-muted">
+                Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} items
+            </div>
+            <nav aria-label="Page navigation">
+                <ul class="pagination pagination-sm mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1" aria-label="First">
+                            <span aria-hidden="true">&laquo;&laquo;</span>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Previous">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Next">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}" aria-label="Last">
+                            <span aria-hidden="true">&raquo;&raquo;</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- EDIT BUDGET MODAL -->
+<div class="modal fade" id="editBudgetModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-indigo text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-cash-coin me-2"></i>Update SubCategory Budget</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="subcategory_id" id="modalSubcatId">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small text-uppercase">Sub-Category</label>
+                        <input type="text" class="form-control" id="modalSubcatName" readonly style="background-color: #f8fafc; font-weight: 600;">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small text-uppercase">Approved Budget Amount (₹) *</label>
+                        <input type="number" class="form-control" name="approved_amount" id="modalApprovedAmount" step="0.01" min="0" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small text-uppercase">Notes</label>
+                        <textarea class="form-control" name="notes" id="modalNotes" rows="3" placeholder="Enter optional notes..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-indigo"><i class="bi bi-check-circle me-1"></i>Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    $(document).ready(function() {
+        let subcatXhr = null;
+
+        function fetchSubcategories(inputEl, query) {
+            if (subcatXhr) subcatXhr.abort();
+            let dropdown = $(inputEl).closest('.custom-select-container').find('.custom-select-dropdown');
+            dropdown.html('<div class="p-2 text-muted small"><i class="bi bi-hourglass-split me-1"></i>Searching...</div>').removeClass('d-none');
+            
+            subcatXhr = $.ajax({
+                url: '/search-subcategory/',
+                method: 'GET',
+                data: { q: query },
+                success: function(res) {
+                    let html = '<div class="custom-select-option" data-value="" data-id="" data-ch4="" data-approved="0" data-notes="">-- All SubCategories --</div>';
+                    if (res.subcategories && res.subcategories.length > 0) {
+                        html += res.subcategories.slice(0, 10).map(s => `
+                            <div class="custom-select-option" 
+                                 data-value="${s.name}" 
+                                 data-id="${s.id}" 
+                                 data-ch4="${s.ch4_code}" 
+                                 data-approved="${parseFloat(s.approved_amount).toFixed(2)}" 
+                                 data-notes="${s.notes || ''}">
+                                 ${s.name}
+                            </div>
+                        `).join('');
+                    } else if (query) {
+                        html += '<div class="p-2 text-muted small">No subcategories found</div>';
+                    }
+                    dropdown.html(html);
+                },
+                error: function(xhr, status, err) {
+                    if (status !== 'abort') {
+                        dropdown.html('<div class="p-2 text-muted small text-danger">Error loading subcategories</div>');
+                    }
+                }
+            });
+        }
+
+        // Show dropdown on click/focus
+        $(document).on('focus click', '#budgetSubcatSelect', function() {
+            fetchSubcategories(this, $(this).val());
+        });
+
+        // Filter dropdown options when typing in the input
+        $(document).on('input', '#budgetSubcatSelect', function() {
+            fetchSubcategories(this, $(this).val());
+        });
+
+        // Select an option
+        $(document).on('mousedown', '.custom-select-container .custom-select-option', function(e) {
+            let val = $(this).data('value'); // name
+            let id = $(this).data('id');
+            let approved = $(this).data('approved') || '0.00';
+            let notes = $(this).data('notes') || '';
+            let txt = $(this).text().trim();
+            
+            let container = $(this).closest('.custom-select-container');
+            let input = container.find('.custom-select-input');
+            
+            if (val === '') {
+                input.val('');
+                input.data('selected-value', '');
+            } else {
+                input.val(txt);
+                input.data('selected-value', val);
+                
+                // Instantly open the edit budget modal for this selected subcategory!
+                $('#modalSubcatId').val(id);
+                $('#modalSubcatName').val(val);
+                $('#modalApprovedAmount').val(approved);
+                $('#modalNotes').val(notes);
+                $('#editBudgetModal').modal('show');
+            }
+            
+            container.find('.custom-select-dropdown').addClass('d-none');
+        });
+
+        // Close dropdown when input loses focus
+        $(document).on('blur', '#budgetSubcatSelect', function() {
+            let self = this;
+            setTimeout(function() {
+                $(self).closest('.custom-select-container').find('.custom-select-dropdown').addClass('d-none');
+            }, 200);
+        });
+
+        // Close dropdown if clicking outside
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('.custom-select-container').length) {
+                $('.custom-select-dropdown').addClass('d-none');
+            }
+        });
+
+        // Edit Button Trigger
+        $('.edit-budget-btn').on('click', function() {
+            let id = $(this).data('id');
+            let name = $(this).data('name');
+            let approved = $(this).data('approved');
+            let notes = $(this).data('notes');
+
+            $('#modalSubcatId').val(id);
+            $('#modalSubcatName').val(name);
+            $('#modalApprovedAmount').val(approved);
+            $('#modalNotes').val(notes);
+
+            $('#editBudgetModal').modal('show');
+        });
+    });
+</script>
+{% endblock %}
