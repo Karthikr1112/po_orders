@@ -34,7 +34,10 @@ class VendorAdmin(admin.ModelAdmin):
 
 class SubCategorySizeInline(admin.TabularInline):
     model = SubCategorySize
+    fields = ("name",)
     extra = 1
+
+
 
 # Register SubCategory
 @admin.register(SubCategory)

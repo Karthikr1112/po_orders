@@ -1013,6 +1013,7 @@ def all_records(request):
     paginator = Paginator(qs, 30)
     page_obj = paginator.get_page(request.GET.get("page"))
 
+
     vendors_qs = (
         PurchaseOrder.objects.filter(is_draft=False)
         .exclude(vendor__isnull=True)
@@ -1185,7 +1186,19 @@ def admin_budget(request):
 
 @login_required
 def size_manager(request):
-    return render(request, "po_sheet/size_manager.html", {"all_subcategories": []})
+    q = (request.GET.get("q") or "").strip()
+    subcategories_qs = SubCategory.objects.filter(sizes__isnull=False).distinct().prefetch_related("sizes").order_by("name")
+    if q:
+        subcategories_qs = subcategories_qs.filter(name__icontains=q) | subcategories_qs.filter(ch4_code__icontains=q)
+    
+    paginator = Paginator(subcategories_qs, 10)
+    page_obj = paginator.get_page(request.GET.get("page"))
+    
+    return render(request, "po_sheet/size_manager.html", {
+        "page_obj": page_obj,
+        "subcategories": page_obj.object_list,
+        "search_query": q,
+    })
 
 
 @login_required

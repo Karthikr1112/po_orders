@@ -1,966 +1,1062 @@
 {% extends 'po_sheet/base.html' %}
-{% block title %}Size Manager - Vendor PO System{% endblock %}
+{% block title %}Size Manager — Vendor PO System{% endblock %}
 
 {% block extra_css %}
 <style>
-    :root {
-        --primary-gradient: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
-        --success-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        --danger-gradient: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-        --luxury-dark: #0f172a;
-        --luxury-glass: rgba(255, 255, 255, 0.95);
-        --luxury-border: rgba(148, 163, 184, 0.2);
-        --shadow-md: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 8px -1px rgba(0, 0, 0, 0.02);
-        --shadow-sm: 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-    }
+:root {
+    --indigo: #4f46e5;
+    --indigo-dark: #3730a3;
+    --indigo-light: rgba(79,70,229,0.08);
+    --slate-50: #f8fafc;
+    --slate-100: #f1f5f9;
+    --slate-200: #e2e8f0;
+    --slate-400: #94a3b8;
+    --slate-500: #64748b;
+    --slate-700: #334155;
+    --slate-900: #0f172a;
+    --green: #10b981;
+    --red: #ef4444;
+    --radius: 12px;
+    --shadow: 0 4px 24px -4px rgba(15,23,42,.08), 0 1px 4px -1px rgba(15,23,42,.04);
+    --shadow-sm: 0 1px 4px rgba(15,23,42,.06);
+}
 
-    .sheet-container {
-        max-width: 1100px;
-        margin: 0.5rem auto;
-        padding: 0 0.75rem;
-    }
-    @media (min-width: 768px) {
-        .sheet-container {
-            margin: 1.5rem auto;
-            padding: 0 1rem;
-        }
-    }
+* { box-sizing: border-box; }
 
-    /* Premium Compact Banner Header */
-    .sheet-header {
-        background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
-        padding: 1rem 1.25rem;
-        border-radius: 12px;
-        margin-bottom: 1.25rem;
-        box-shadow: 0 12px 30px -10px rgba(79, 70, 229, 0.25);
-        position: relative;
-        overflow: hidden;
-    }
-    @media (min-width: 768px) {
-        .sheet-header {
-            padding: 1.25rem 1.75rem;
-            border-radius: 16px;
-            margin-bottom: 1.5rem;
-        }
-    }
+.sm-wrap {
+    max-width: 1120px;
+    margin: 1.5rem auto;
+    padding: 0 1rem;
+}
 
-    .sheet-header::before {
-        content: '';
-        position: absolute;
-        top: -20%;
-        right: -10%;
-        width: 280px;
-        height: 280px;
-        background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, transparent 60%);
-        border-radius: 50%;
-        pointer-events: none;
-    }
+/* ── Header ── */
+.sm-header {
+    background: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #3b82f6 100%);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.75rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 8px 32px -8px rgba(79,70,229,.35);
+    position: relative;
+    overflow: hidden;
+}
+.sm-header::after {
+    content: '';
+    position: absolute;
+    right: -60px; top: -60px;
+    width: 220px; height: 220px;
+    background: radial-gradient(circle, rgba(255,255,255,.12) 0%, transparent 65%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+.sm-header-title {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -.02em;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin: 0 0 .2rem;
+}
+.sm-header-sub {
+    color: rgba(255,255,255,.8);
+    font-size: .85rem;
+    font-weight: 500;
+    margin: 0;
+}
+.sm-header .btn-white {
+    background: #fff;
+    color: var(--indigo);
+    border: none;
+    font-weight: 700;
+    font-size: .82rem;
+    padding: .45rem 1.1rem;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,.1);
+    transition: all .2s;
+    cursor: pointer;
+    text-decoration: none;
+}
+.sm-header .btn-white:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0,0,0,.14);
+    color: var(--indigo-dark);
+}
 
-    .sheet-header h3,
-    .sheet-header p {
-        color: white !important;
-        position: relative;
-        z-index: 1;
-    }
+/* ── Search bar ── */
+.sm-search-wrap {
+    background: #fff;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--slate-200);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.25rem;
+}
+.sm-search-input {
+    border: 1.5px solid var(--slate-200);
+    border-radius: 8px;
+    padding: .55rem 1rem .55rem 2.5rem;
+    font-size: .875rem;
+    font-weight: 500;
+    background: var(--slate-50);
+    color: var(--slate-900);
+    width: 100%;
+    transition: all .2s;
+}
+.sm-search-input:focus {
+    border-color: var(--indigo);
+    box-shadow: 0 0 0 3px rgba(79,70,229,.12);
+    background: #fff;
+    outline: none;
+}
+.sm-search-icon {
+    position: absolute;
+    left: .85rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--slate-400);
+    font-size: .9rem;
+    pointer-events: none;
+}
+.btn-indigo {
+    background: linear-gradient(135deg, var(--indigo) 0%, var(--indigo-dark) 100%);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: .55rem 1.2rem;
+    font-weight: 700;
+    font-size: .85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    transition: all .2s;
+    cursor: pointer;
+}
+.btn-indigo:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(79,70,229,.3);
+    color: #fff;
+}
+.btn-outline-secondary {
+    border: 1.5px solid var(--slate-200);
+    background: #fff;
+    color: var(--slate-500);
+    border-radius: 8px;
+    padding: .52rem .9rem;
+    font-size: .85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    transition: all .2s;
+    cursor: pointer;
+    text-decoration: none;
+}
+.btn-outline-secondary:hover {
+    border-color: var(--red);
+    color: var(--red);
+    background: #fef2f2;
+}
 
-    .sheet-header h3 {
-        font-weight: 700;
-        letter-spacing: -0.01em;
-        font-size: 1.5rem;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 0.15rem !important;
-    }
+/* ── Main card ── */
+.sm-card {
+    background: #fff;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--slate-200);
+    overflow: hidden;
+}
+.sm-card-head {
+    background: linear-gradient(135deg, var(--slate-50) 0%, var(--slate-100) 100%);
+    padding: .9rem 1.5rem;
+    border-bottom: 1px solid var(--slate-200);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.sm-card-head-title {
+    font-size: .82rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--slate-700);
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+.sm-card-head-title::before {
+    content: '';
+    width: 3px; height: 14px;
+    background: var(--indigo);
+    border-radius: 2px;
+    display: inline-block;
+}
+.count-badge {
+    background: var(--indigo-light);
+    color: var(--indigo);
+    border: 1px solid rgba(79,70,229,.15);
+    border-radius: 20px;
+    padding: .2rem .7rem;
+    font-size: .75rem;
+    font-weight: 700;
+}
 
-    .sheet-header p {
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: rgba(255, 255, 255, 0.85) !important;
-    }
+/* ── Table ── */
+.sm-table { width: 100%; border-collapse: collapse; }
+.sm-table thead th {
+    background: var(--slate-100);
+    color: var(--slate-500);
+    font-size: .72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    padding: .75rem 1.25rem;
+    border-bottom: 2px solid var(--slate-200);
+    text-align: left;
+    white-space: nowrap;
+}
+.sm-table tbody td {
+    padding: .85rem 1.25rem;
+    border-bottom: 1px solid var(--slate-100);
+    vertical-align: middle;
+}
+.sm-table tbody tr:last-child td { border-bottom: none; }
+.sm-table tbody tr { transition: background .15s; }
+.sm-table tbody tr:hover { background: rgba(79,70,229,.025); }
 
-    .sheet-header .btn-light {
-        background: white;
-        border: none;
-        color: #4f46e5 !important;
-        font-weight: 600;
-        padding: 0.5rem 1rem;
-        border-radius: 8px;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-        transition: all 0.2s ease;
-        font-size: 0.85rem;
-    }
+.row-num {
+    font-size: .8rem;
+    font-weight: 700;
+    color: var(--slate-400);
+    text-align: center;
+}
+.subcat-name {
+    font-weight: 700;
+    color: var(--slate-900);
+    font-size: .9rem;
+}
+.subcat-ch4 {
+    font-size: .73rem;
+    color: var(--slate-400);
+    font-weight: 600;
+    margin-top: .1rem;
+}
 
-    .sheet-header .btn-light:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-        background: #f8fafc;
-    }
+/* ── Size chips ── */
+.sz-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+    max-height: 120px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+.sz-chips::-webkit-scrollbar {
+    width: 4px;
+}
+.sz-chips::-webkit-scrollbar-track {
+    background: transparent;
+}
+.sz-chips::-webkit-scrollbar-thumb {
+    background: var(--slate-300);
+    border-radius: 4px;
+}
+.sz-chips::-webkit-scrollbar-thumb:hover {
+    background: var(--indigo);
+}
+.sz-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    background: var(--slate-50);
+    border: 1px solid var(--slate-200);
+    color: var(--slate-700);
+    border-radius: 6px;
+    padding: .22rem .6rem;
+    font-size: .75rem;
+    font-weight: 700;
+    transition: all .15s;
+}
+.sz-chip:hover { border-color: var(--indigo); color: var(--indigo); background: var(--indigo-light); }
+.sz-remove {
+    background: none;
+    border: none;
+    padding: 0;
+    line-height: 1;
+    color: var(--slate-400);
+    cursor: pointer;
+    font-size: .85rem;
+    display: flex;
+    align-items: center;
+    transition: color .15s;
+}
+.sz-remove:hover { color: var(--red); }
+.sz-empty { color: var(--slate-400); font-size: .8rem; font-style: italic; }
 
-    /* Modern Glass Card */
-    .sheet-body {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 16px;
-        box-shadow: var(--shadow-md);
-        border: 1px solid var(--luxury-border);
-    }
-    @media (min-width: 768px) {
-        .sheet-body {
-            padding: 2rem;
-        }
-    }
+/* Edit button */
+.btn-edit {
+    background: var(--indigo-light);
+    color: var(--indigo);
+    border: 1px solid rgba(79,70,229,.2);
+    border-radius: 7px;
+    padding: .35rem .85rem;
+    font-size: .78rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    transition: all .2s;
+    cursor: pointer;
+}
+.btn-edit:hover {
+    background: var(--indigo);
+    color: #fff;
+    border-color: var(--indigo);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(79,70,229,.25);
+}
 
-    .form-label {
-        color: #475569;
-        font-weight: 700;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        margin-bottom: 0.5rem;
-        display: flex;
-        align-items: center;
-        gap: 0.35rem;
-    }
+/* Empty state */
+.sm-empty {
+    padding: 3.5rem 1.5rem;
+    text-align: center;
+    color: var(--slate-400);
+}
+.sm-empty-icon {
+    width: 64px; height: 64px;
+    background: var(--slate-100);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 1rem;
+    font-size: 1.75rem;
+    color: var(--slate-300);
+}
+.sm-empty-title { font-weight: 700; color: var(--slate-500); font-size: .95rem; margin-bottom: .4rem; }
+.sm-empty-sub { font-size: .82rem; color: var(--slate-400); }
 
-    .form-label i {
-        color: #4f46e5;
-        font-size: 0.875rem;
-    }
+/* Pagination */
+.sm-footer {
+    padding: .9rem 1.5rem;
+    border-top: 1px solid var(--slate-200);
+    background: var(--slate-50);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: .75rem;
+}
+.sm-page-info { font-size: .8rem; color: var(--slate-500); font-weight: 600; }
+.pagination { display: flex; gap: .3rem; list-style: none; margin: 0; padding: 0; }
+.pagination .page-link {
+    display: flex; align-items: center; justify-content: center;
+    min-width: 32px; height: 32px;
+    border: 1.5px solid var(--slate-200);
+    border-radius: 7px;
+    font-size: .78rem;
+    font-weight: 700;
+    color: var(--slate-500);
+    background: #fff;
+    text-decoration: none;
+    transition: all .15s;
+    padding: 0 .5rem;
+}
+.pagination .page-link:hover { border-color: var(--indigo); color: var(--indigo); background: var(--indigo-light); }
+.pagination .page-item.active .page-link {
+    background: var(--indigo);
+    border-color: var(--indigo);
+    color: #fff;
+    box-shadow: 0 3px 8px rgba(79,70,229,.3);
+}
+.pagination .page-item.disabled .page-link { opacity: .4; pointer-events: none; }
 
-    /* Custom Fields styling */
-    .form-control {
-        border: 1px solid #cbd5e1;
-        border-radius: 8px;
-        padding: 0.55rem 0.85rem;
-        font-size: 0.875rem;
-        font-weight: 500;
-        transition: all 0.2s ease;
-        background: #f8fafc;
-        color: #1e293b;
-    }
+/* ── Slide-in form panel ── */
+.sm-form-panel {
+    background: #fff;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--slate-200);
+    overflow: visible;
+    margin-bottom: 1.25rem;
+}
+.sm-form-head {
+    background: linear-gradient(135deg, var(--slate-50) 0%, var(--slate-100) 100%);
+    padding: .9rem 1.5rem;
+    border-bottom: 1px solid var(--slate-200);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.sm-form-head-title {
+    font-size: .82rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--slate-700);
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+.sm-form-head-title::before {
+    content: '';
+    width: 3px; height: 14px;
+    background: var(--indigo);
+    border-radius: 2px;
+    display: inline-block;
+}
+.sm-form-body { padding: 1.5rem; }
 
-    .form-control::placeholder {
-        color: #94a3b8;
-    }
+.form-label-sm {
+    font-size: .72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--slate-500);
+    margin-bottom: .5rem;
+    display: flex;
+    align-items: center;
+    gap: .3rem;
+}
+.form-label-sm i { color: var(--indigo); }
 
-    .form-control:focus {
-        border-color: #4f46e5;
-        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
-        background: white;
-        outline: none;
-    }
+.f-input {
+    border: 1.5px solid var(--slate-200);
+    border-radius: 8px;
+    padding: .55rem .9rem;
+    font-size: .875rem;
+    font-weight: 500;
+    background: var(--slate-50);
+    color: var(--slate-900);
+    width: 100%;
+    transition: all .2s;
+}
+.f-input:focus {
+    border-color: var(--indigo);
+    box-shadow: 0 0 0 3px rgba(79,70,229,.12);
+    background: #fff;
+    outline: none;
+}
+.f-input::placeholder { color: var(--slate-400); }
+.f-hint { font-size: .72rem; color: var(--slate-400); margin-top: .35rem; font-weight: 500; }
 
-    .input-helper-text {
-        color: #64748b;
-        font-size: 0.75rem;
-        margin-top: 0.4rem;
-        font-weight: 500;
-        display: flex;
-        align-items: center;
-        gap: 0.3rem;
-    }
+/* Current sizes inside form */
+.cur-sizes-box {
+    background: var(--slate-50);
+    border: 1.5px dashed var(--slate-200);
+    border-radius: 10px;
+    padding: 1.1rem 1.25rem;
+    min-height: 80px;
+}
+.cur-sizes-label {
+    font-size: .72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--slate-500);
+    margin-bottom: .75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.cur-sizes-label .cnt-pill {
+    background: var(--indigo);
+    color: #fff;
+    border-radius: 20px;
+    padding: .1rem .55rem;
+    font-size: .7rem;
+}
+#sizeList { display: flex; flex-wrap: wrap; gap: .4rem; min-height: 40px; align-items: flex-start; }
 
-    .input-helper-text i {
-        color: #3b82f6;
-        font-size: 0.8rem;
-    }
+/* Dropdowns */
+.sm-dropdown {
+    position: absolute;
+    z-index: 1060;
+    background: #fff;
+    border: 1.5px solid var(--slate-200);
+    border-radius: 10px;
+    box-shadow: 0 12px 32px -8px rgba(15,23,42,.12);
+    width: 100%;
+    margin-top: .35rem;
+    max-height: 280px;
+    overflow-y: auto;
+    display: none;
+    padding: .35rem 0;
+}
+.sm-dropdown .dd-item {
+    padding: .6rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid var(--slate-100);
+    font-size: .84rem;
+    transition: all .12s;
+}
+.sm-dropdown .dd-item:last-child { border-bottom: none; }
+.sm-dropdown .dd-item:hover { background: var(--indigo-light); color: var(--indigo); padding-left: 1.2rem; }
+.sm-dropdown .dd-item .dd-main { font-weight: 700; color: var(--slate-900); }
+.sm-dropdown .dd-item .dd-sub { font-size: .72rem; color: var(--slate-400); margin-top: .1rem; }
+.sm-dropdown .dd-searching { padding: .7rem 1rem; color: var(--slate-400); font-size: .82rem; }
 
-    /* Premium Button styling */
-    .btn-primary {
-        background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
-        border: none;
-        border-radius: 8px;
-        padding: 0.55rem 1.25rem;
-        font-weight: 600;
-        box-shadow: 0 4px 12px -2px rgba(79, 70, 229, 0.25);
-        transition: all 0.2s ease;
-        font-size: 0.875rem;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.4rem;
-        color: white;
-    }
+/* Toast */
+.sm-toast {
+    position: fixed;
+    top: 1.25rem; right: 1.25rem;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    padding: .85rem 1.25rem;
+    border-radius: 10px;
+    box-shadow: 0 16px 40px rgba(0,0,0,.12);
+    font-weight: 600;
+    font-size: .875rem;
+    min-width: 260px;
+    animation: toastIn .3s cubic-bezier(.34,1.56,.64,1);
+    color: #fff;
+}
+.sm-toast.success { background: linear-gradient(135deg, #10b981, #059669); }
+.sm-toast.error   { background: linear-gradient(135deg, #ef4444, #dc2626); }
+.sm-toast-close {
+    margin-left: auto;
+    background: rgba(255,255,255,.2);
+    border: none; color: #fff;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .8rem;
+    transition: background .15s;
+}
+.sm-toast-close:hover { background: rgba(255,255,255,.35); }
 
-    .btn-primary:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 6px 16px rgba(79, 70, 229, 0.35);
-        color: white;
-    }
+@keyframes toastIn {
+    from { transform: translateX(120%); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes toastOut {
+    from { transform: translateX(0);    opacity: 1; }
+    to   { transform: translateX(120%); opacity: 0; }
+}
+@keyframes popIn {
+    0%   { transform: scale(.7); opacity: 0; }
+    70%  { transform: scale(1.05); }
+    100% { transform: scale(1); opacity: 1; }
+}
+.sz-chip-new { animation: popIn .3s ease forwards; }
 
-    .btn-primary:active {
-        transform: translateY(0);
-    }
-
-    .section-divider {
-        margin: 1.5rem 0;
-        border: none;
-        height: 1px;
-        background: linear-gradient(90deg, transparent, #e2e8f0 50%, transparent);
-    }
-
-    /* Sizes Section Card */
-    .sizes-section {
-        background: #f8fafc;
-        padding: 1.5rem;
-        border-radius: 12px;
-        border: 1px solid #e2e8f0;
-        min-height: 200px;
-        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.01);
-    }
-
-    .section-title {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 1.25rem;
-        font-size: 0.875rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: #475569;
-        border-bottom: 1px solid #cbd5e1;
-        padding-bottom: 0.5rem;
-    }
-
-    .section-title span:first-child {
-        display: flex;
-        align-items: center;
-        gap: 0.35rem;
-    }
-
-    .section-title span:first-child::before {
-        content: '';
-        width: 3px;
-        height: 14px;
-        background: #4f46e5;
-        border-radius: 1px;
-    }
-
-    .section-title .badge {
-        font-size: 0.75rem;
-        font-weight: 700;
-        padding: 0.25rem 0.5rem;
-        border-radius: 6px;
-        background-color: #4f46e5 !important;
-        box-shadow: 0 2px 6px rgba(79, 70, 229, 0.15);
-    }
-
-    #sizeList {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        min-height: 80px;
-        align-items: flex-start;
-    }
-
-    /* Custom Size Badge Styling */
-    .size-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.45rem;
-        padding: 0.45rem 0.75rem;
-        background: white;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: #1e293b;
-        transition: all 0.2s ease;
-        box-shadow: var(--shadow-sm);
-    }
-
-    .size-badge:hover {
-        border-color: #4f46e5;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 10px -2px rgba(79, 70, 229, 0.12);
-        background: #f8fafc;
-    }
-
-    .size-badge .badge-text {
-        color: #1e293b;
-        font-weight: 600;
-    }
-
-    .remove-size-btn {
-        background: #fef2f2;
-        color: #ef4444;
-        border: none;
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.7rem;
-        font-weight: 700;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        padding: 0;
-    }
-
-    .remove-size-btn:hover {
-        background: #ef4444;
-        color: white;
-        transform: rotate(90deg);
-    }
-
-    /* Custom Empty State Illustration style */
-    .empty-state {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 3rem 1.5rem;
-        color: #94a3b8;
-        text-align: center;
-        width: 100%;
-        background: rgba(255, 255, 255, 0.6);
-        border: 1.5px dashed #cbd5e1;
-        border-radius: 12px;
-    }
-
-    .empty-state i {
-        font-size: 2.5rem;
-        color: #cbd5e1;
-        margin-bottom: 0.75rem;
-        background: #f1f5f9;
-        width: 60px;
-        height: 60px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        box-shadow: inset 0 1px 2px rgba(0,0,0,0.01);
-    }
-
-    .empty-state-text {
-        font-size: 0.875rem;
-        font-weight: 600;
-        color: #64748b;
-    }
-
-    /* Premium Toast Notification */
-    .toast-notification {
-        position: fixed;
-        top: 16px;
-        right: 16px;
-        z-index: 10000;
-        display: flex;
-        align-items: center;
-        gap: 0.65rem;
-        padding: 0.85rem 1.25rem;
-        border-radius: 12px;
-        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
-        animation: slideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-        font-weight: 600;
-        min-width: 280px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .toast-success {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        color: white;
-    }
-
-    .toast-error {
-        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-        color: white;
-    }
-
-    .toast-close {
-        margin-left: auto;
-        background: rgba(255, 255, 255, 0.2);
-        border: none;
-        color: white;
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s ease;
-        font-size: 0.75rem;
-    }
-
-    .toast-close:hover {
-        background: rgba(255, 255, 255, 0.35);
-    }
-
-    /* Auto-complete Dropdown Result List */
-    #sizeSubcategoryDropdown.search-results,
-    #sizeInputDropdown.search-results {
-        max-height: 300px;
-        overflow-y: auto;
-        position: absolute;
-        z-index: 1050;
-        background: white;
-        border: 1px solid #cbd5e1;
-        border-radius: 10px;
-        box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.08);
-        width: 100%;
-        margin-top: 0.35rem;
-        display: none;
-        padding: 0.35rem 0;
-    }
-
-    #sizeSubcategoryDropdown .search-item,
-    #sizeInputDropdown .search-item {
-        padding: 0.65rem 1rem;
-        cursor: pointer;
-        border-bottom: 1px solid #f1f5f9;
-        transition: all 0.15s ease;
-        font-size: 0.85rem;
-    }
-
-    #sizeSubcategoryDropdown .search-item:last-child,
-    #sizeInputDropdown .search-item:last-child {
-        border-bottom: none;
-    }
-
-    #sizeSubcategoryDropdown .search-item:hover,
-    #sizeInputDropdown .search-item:hover {
-        background-color: #f1f5f9;
-        padding-left: 1.2rem;
-        color: #4f46e5;
-    }
-
-    #sizeSubcategoryDropdown .search-item .fw-bold {
-        font-weight: 700;
-        color: #1e293b;
-    }
-
-    @keyframes slideIn {
-        from {
-            transform: translateX(350px);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
-    }
-
-    @keyframes slideOut {
-        from {
-            transform: translateX(0);
-            opacity: 1;
-        }
-        to {
-            transform: translateX(350px);
-            opacity: 0;
-        }
-    }
-
-    .spinner-border-custom {
-        width: 16px;
-        height: 16px;
-        border-width: 2px;
-    }
-
-    @media (max-width: 768px) {
-        .sheet-container {
-            margin: 0.5rem auto;
-            padding: 0 0.5rem;
-        }
-        .sheet-header {
-            padding: 1rem;
-            margin-bottom: 1rem;
-        }
-        .sheet-body {
-            padding: 1rem;
-        }
-        .size-badge {
-            font-size: 0.8rem;
-            padding: 0.35rem 0.55rem;
-        }
-    }
-
-    @keyframes pulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.03); }
-    }
-
-    .size-badge-new {
-        animation: pulse 0.4s ease;
-    }
-
-    #sizeSubcategoryDropdown .search-item .small,
-    #sizeInputDropdown .search-item .small {
-        font-size: 0.75rem;
-        margin: 0.1rem 0;
-    }
+@media (max-width: 640px) {
+    .sm-wrap { margin: .75rem auto; }
+    .sm-header { padding: 1rem; }
+    .sm-table thead th, .sm-table tbody td { padding: .65rem .75rem; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="sheet-container">
-    <!-- Header Section -->
-    <div class="sheet-header">
-        <div class="d-flex justify-content-between align-items-center">
+<div class="sm-wrap">
+
+    <!-- ── Header ── -->
+    <div class="sm-header">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.75rem; position:relative; z-index:1;">
             <div>
-                <h3 class="mb-1">
-                    <i class="bi bi-rulers me-2"></i>Size Manager
-                </h3>
-                <p class="mb-0 opacity-75">Manage sizes for your product subcategories</p>
+                <h2 class="sm-header-title"><i class="bi bi-rulers"></i>Size Manager</h2>
+                <p class="sm-header-sub">Manage sizes for your product subcategories</p>
             </div>
-            <a href="{% url 'po_sheet' %}" class="btn btn-light btn-sm px-4">
-                <i class="bi bi-arrow-left me-2"></i>Back to PO
-            </a>
+            <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
+                <button type="button" class="btn-white" id="toggleViewBtn">
+                    <i class="bi bi-plus-circle"></i>Add Sizes
+                </button>
+                <a href="{% url 'po_sheet' %}" class="btn-white">
+                    <i class="bi bi-arrow-left"></i>Back to PO
+                </a>
+            </div>
         </div>
     </div>
 
-    <!-- Main Content -->
-    <div class="sheet-body">
-        <!-- Input Section -->
-        <div class="row g-4">
-            <div class="col-lg-5">
-                <label class="form-label">
-                    <i class="bi bi-tag me-2"></i>Select Subcategory
-                </label>
-                <div style="position: relative;">
-                    <input type="text" class="form-control" id="sizeSubcategorySearch"
-                        placeholder="Search by name or CH4 code..." title="Search by subcategory name or CH4 code">
-                    <div id="sizeSubcategoryDropdown" class="search-results"></div>
-                </div>
-                <div class="input-helper-text">
-                    <i class="bi bi-info-circle"></i>
-                    <span>Click to see all products, or search by name/CH4 code</span>
-                </div>
-                <select class="form-select d-none" id="sizeSubcategorySelect">
-                    <option value="">Choose a subcategory...</option>
-                    <optgroup label="MSSQL Subcategories">
-                    </optgroup>
-                </select>
-            </div>
-
-            <div class="col-lg-7">
-                <label class="form-label">
-                    <i class="bi bi-plus-circle me-2"></i>Add Sizes
-                </label>
-                <div style="position: relative;">
-                    <input type="text" class="form-control" id="manualSizeInput"
-                        placeholder="e.g., XL, L, M, S or 32, 34, 36...">
-                    <div id="sizeInputDropdown" class="search-results"></div>
-                </div>
-                <div class="input-helper-text">
-                    <i class="bi bi-info-circle"></i>
-                    <span>Type to search or enter custom sizes (comma separated)</span>
-                </div>
-                <button type="button" class="btn btn-primary mt-2" id="saveSizesBtn">
-                    <i class="bi bi-check-circle me-2"></i>Save Sizes
+    <!-- ── Add / Edit Form (hidden by default) ── -->
+    <div id="formPanel" style="display:none;">
+        <div class="sm-form-panel">
+            <div class="sm-form-head">
+                <span class="sm-form-head-title" id="formPanelTitle">
+                    <i class="bi bi-plus-circle" style="color:var(--indigo);"></i>Add SubCategory Sizes
+                </span>
+                <button type="button" class="sz-remove" id="closeFormBtn" title="Close" style="color:var(--slate-400); font-size:1.2rem;">
+                    <i class="bi bi-x-lg"></i>
                 </button>
             </div>
-        </div>
+            <div class="sm-form-body">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;">
 
-        <!-- Section Divider -->
-        <hr class="section-divider">
+                    <!-- Subcategory search -->
+                    <div>
+                        <label class="form-label-sm"><i class="bi bi-tag"></i>Subcategory</label>
+                        <div style="position:relative;">
+                            <input type="text" class="f-input" id="sizeSubcategorySearch"
+                                placeholder="Search by name or CH4 code…">
+                            <div class="sm-dropdown" id="sizeSubcategoryDropdown"></div>
+                        </div>
+                        <p class="f-hint"><i class="bi bi-info-circle me-1"></i>Search from MSSQL subcategories</p>
+                        <select id="sizeSubcategorySelect" style="display:none;">
+                            <option value="">—</option>
+                        </select>
+                    </div>
 
-        <!-- Sizes Display Section -->
-        <div class="sizes-section">
-            <div class="section-title">
-                <span>Available Sizes</span>
-                <span class="badge bg-primary" id="sizeCount" style="display:none;">0</span>
-            </div>
-            <div id="sizeList">
-                <div class="empty-state">
-                    <i class="bi bi-inbox"></i>
-                    <div class="empty-state-text">
-                        Select a subcategory to view and manage sizes
+                    <!-- Size input -->
+                    <div>
+                        <label class="form-label-sm"><i class="bi bi-plus-circle"></i>Sizes to Add</label>
+                        <div style="position:relative;">
+                            <input type="text" class="f-input" id="manualSizeInput"
+                                placeholder="e.g. XS, S, M, L, XL or 32, 34, 36…">
+                        </div>
+                        <p class="f-hint"><i class="bi bi-info-circle me-1"></i>Comma-separated, press Enter or click Save</p>
+                        <button type="button" class="btn-indigo mt-2 w-100" id="saveSizesBtn" style="width:100%; justify-content:center;">
+                            <i class="bi bi-check-circle"></i>Save Sizes
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Current sizes preview -->
+                <div style="margin-top:1.25rem;">
+                    <div class="cur-sizes-label">
+                        <span><i class="bi bi-grid-3x3-gap me-1" style="color:var(--indigo);"></i>Current Sizes</span>
+                        <span class="cnt-pill" id="sizeCount" style="display:none;">0</span>
+                    </div>
+                    <div class="cur-sizes-box">
+                        <div id="sizeList">
+                            <span class="sz-empty">Select a subcategory to see its sizes</span>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- ── Search bar ── -->
+    <div class="sm-search-wrap">
+        <form method="get" action="">
+            <div style="display:flex; gap:.75rem; align-items:center;">
+                <div style="position:relative; flex:1;">
+                    <i class="bi bi-search sm-search-icon"></i>
+                    <input type="text" name="q" class="sm-search-input"
+                        placeholder="Search subcategories by name or CH4 code…"
+                        value="{{ search_query }}">
+                </div>
+                <button type="submit" class="btn-indigo">
+                    <i class="bi bi-search"></i>Search
+                </button>
+                {% if search_query %}
+                <a href="{% url 'size_manager' %}" class="btn-outline-secondary">
+                    <i class="bi bi-x-circle"></i>Clear
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- ── Main table ── -->
+    <div class="sm-card">
+        <div class="sm-card-head">
+            <span class="sm-card-head-title">
+                <i class="bi bi-table" style="color:var(--indigo);"></i>SubCategory Sizes
+            </span>
+            <span class="count-badge">{{ page_obj.paginator.count }} Subcategor{{ page_obj.paginator.count|pluralize:"y,ies" }}</span>
+        </div>
+
+        <div style="overflow-x:auto;">
+            <table class="sm-table">
+                <thead>
+                    <tr>
+                        <th style="width:52px; text-align:center;">#</th>
+                        <th style="min-width:200px;">Sub-Category</th>
+                        <th>Available Sizes</th>
+                        <th style="width:100px; text-align:center;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sc in subcategories %}
+                    <tr>
+                        <td class="row-num">{{ page_obj.start_index|add:forloop.counter0 }}</td>
+                        <td>
+                            <div class="subcat-name">{{ sc.name }}</div>
+                            {% if sc.ch4_code %}
+                            <div class="subcat-ch4"><i class="bi bi-hash me-1"></i>{{ sc.ch4_code }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="sz-chips">
+                                {% for size in sc.sizes.all %}
+                                <span class="sz-chip">
+                                    {{ size.name }}
+                                    <button type="button" class="sz-remove remove-inline"
+                                        data-subcat-id="{{ sc.id }}"
+                                        data-size-id="{{ size.id }}"
+                                        data-size-name="{{ size.name }}"
+                                        title="Remove {{ size.name }}">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </span>
+                                {% empty %}
+                                <span class="sz-empty">No sizes assigned</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td style="text-align:center;">
+                            <button type="button" class="btn-edit edit-btn"
+                                data-id="{{ sc.id }}"
+                                data-name="{{ sc.name }}"
+                                data-ch4="{{ sc.ch4_code|default:'' }}">
+                                <i class="bi bi-pencil-square"></i>Edit
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4">
+                            <div class="sm-empty">
+                                <div class="sm-empty-icon"><i class="bi bi-rulers"></i></div>
+                                <div class="sm-empty-title">
+                                    {% if search_query %}No results for "{{ search_query }}"{% else %}No sizes added yet{% endif %}
+                                </div>
+                                <div class="sm-empty-sub">
+                                    {% if search_query %}Try a different search term{% else %}Click "Add Sizes" to get started{% endif %}
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if page_obj.paginator.count > 0 %}
+        <div class="sm-footer">
+            <span class="sm-page-info">
+                Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }}
+            </span>
+            <ul class="pagination">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1{% if search_query %}&q={{ search_query }}{% endif %}" title="First">«</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}" title="Previous">‹</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">«</span></li>
+                <li class="page-item disabled"><span class="page-link">‹</span></li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}{% if search_query %}&q={{ search_query }}{% endif %}">{{ num }}</a>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}" title="Next">›</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&q={{ search_query }}{% endif %}" title="Last">»</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">›</span></li>
+                <li class="page-item disabled"><span class="page-link">»</span></li>
+                {% endif %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+
 </div>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
+const CSRF = (()=>{
+    const m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : '';
+})();
+
+// ── Toast ────────────────────────────────────────────────────
+function toast(msg, type='success') {
+    document.querySelectorAll('.sm-toast').forEach(t=>t.remove());
+    const el = document.createElement('div');
+    el.className = `sm-toast ${type}`;
+    el.innerHTML = `
+        <i class="bi bi-${type==='success'?'check-circle-fill':'exclamation-circle-fill'}"></i>
+        <span>${msg}</span>
+        <button class="sm-toast-close">&times;</button>`;
+    document.body.appendChild(el);
+    const remove = () => {
+        el.style.animation = 'toastOut .3s ease forwards';
+        setTimeout(()=>el.remove(), 300);
+    };
+    el.querySelector('.sm-toast-close').onclick = remove;
+    setTimeout(remove, 3500);
+}
+
+// ── Form panel open/close ────────────────────────────────────
+let needsRefresh = false;
+
+function openForm(title, subcatId, subcatName, ch4) {
+    document.getElementById('formPanelTitle').innerHTML =
+        `<i class="bi bi-${subcatId?'pencil-square':'plus-circle'}" style="color:var(--indigo);"></i>${title}`;
+
+    const searchEl = document.getElementById('sizeSubcategorySearch');
+    const selectEl = document.getElementById('sizeSubcategorySelect');
+
+    if (subcatId) {
+        searchEl.value = subcatName;
+        searchEl.readOnly = true;
+        // Ensure option exists
+        if (!selectEl.querySelector(`option[value="${subcatId}"]`)) {
+            const opt = new Option(subcatName, subcatId);
+            selectEl.appendChild(opt);
+        }
+        selectEl.value = String(subcatId);
+        loadSizes(subcatId);
+    } else {
+        searchEl.value = '';
+        searchEl.readOnly = false;
+        selectEl.value = '';
+        resetSizeList();
+    }
+    document.getElementById('manualSizeInput').value = '';
+    document.getElementById('formPanel').style.display = 'block';
+    
+    // Hide search bar and main list when Form Panel is open
+    document.querySelectorAll('.sm-search-wrap, .sm-card').forEach(el => el.style.display = 'none');
+    
+    document.getElementById('formPanel').scrollIntoView({behavior:'smooth', block:'nearest'});
+    needsRefresh = false;
+}
+
+function closeForm() {
+    document.getElementById('formPanel').style.display = 'none';
+    
+    // Show search bar and main list when Form Panel is closed
+    document.querySelectorAll('.sm-search-wrap, .sm-card').forEach(el => el.style.display = 'block');
+    
+    if (needsRefresh) location.reload();
+}
+
+document.getElementById('closeFormBtn').onclick = function() {
+    closeForm();
+    document.getElementById('toggleViewBtn').innerHTML = '<i class="bi bi-plus-circle"></i>Add Sizes';
+};
+document.getElementById('toggleViewBtn').onclick = function() {
+    const panel = document.getElementById('formPanel');
+    if (panel.style.display === 'none') {
+        openForm('Add SubCategory Sizes', null, '', '');
+        this.innerHTML = '<i class="bi bi-list-ul"></i>View List';
+    } else {
+        closeForm();
+        this.innerHTML = '<i class="bi bi-plus-circle"></i>Add Sizes';
+    }
+};
+
+document.querySelectorAll('.edit-btn').forEach(btn => {
+    btn.onclick = function() {
+        document.getElementById('toggleViewBtn').innerHTML = '<i class="bi bi-list-ul"></i>View List';
+        openForm(
+            `Edit Sizes: ${this.dataset.name}`,
+            this.dataset.id,
+            this.dataset.name,
+            this.dataset.ch4
+        );
+    };
+});
+
+// ── Size list ────────────────────────────────────────────────
+let currentSizes = [];
+
+function resetSizeList() {
+    document.getElementById('sizeList').innerHTML =
+        '<span class="sz-empty">Select a subcategory to see its sizes</span>';
+    document.getElementById('sizeCount').style.display = 'none';
+    currentSizes = [];
+}
+
+function renderSizeList(sizes) {
+    const el = document.getElementById('sizeList');
+    if (!sizes.length) {
+        el.innerHTML = '<span class="sz-empty">No sizes yet — add your first size above</span>';
+        document.getElementById('sizeCount').style.display = 'none';
+        return;
+    }
+    el.innerHTML = sizes.map(s => `
+        <span class="sz-chip sz-chip-new">
+            ${s.name}
+            <button type="button" class="sz-remove remove-form"
+                data-size-id="${s.id}" data-size-name="${s.name}" title="Remove ${s.name}">
+                <i class="bi bi-x"></i>
+            </button>
+        </span>`).join('');
+    const cnt = document.getElementById('sizeCount');
+    cnt.textContent = sizes.length;
+    cnt.style.display = 'inline';
+    setTimeout(()=>document.querySelectorAll('.sz-chip-new').forEach(c=>c.classList.remove('sz-chip-new')), 400);
+}
+
+function loadSizes(subcatId) {
+    fetch(`/get-subcategory-sizes/${subcatId}/`)
+        .then(r=>r.json())
+        .then(res=>{
+            currentSizes = res.success ? res.sizes : [];
+            renderSizeList(currentSizes);
+        })
+        .catch(()=>resetSizeList());
+}
+
+// ── Subcategory search dropdown ──────────────────────────────
+let xhrSc = null;
+
+function searchSubcats(q) {
+    if (xhrSc) xhrSc.abort();
+    const dd = document.getElementById('sizeSubcategoryDropdown');
+    dd.innerHTML = '<div class="dd-searching"><i class="bi bi-hourglass-split me-1"></i>Searching…</div>';
+    dd.style.display = 'block';
+
+    xhrSc = $.ajax({
+        url: '/search-subcategory/',
+        data: { q },
+        success(res) {
+            const items = (res.subcategories || []).slice(0, 12);
+            if (!items.length) {
+                dd.innerHTML = '<div class="dd-searching">No matches found</div>';
+                return;
             }
-        }
-        return cookieValue;
+            dd.innerHTML = items.map(i=>`
+                <div class="dd-item" data-id="${i.id}" data-name="${i.name}" data-ch4="${i.ch4_code||''}">
+                    <div class="dd-main">${i.name}</div>
+                    <div class="dd-sub">${i.ch4_code ? 'CH4: '+i.ch4_code : 'No CH4 code'}</div>
+                </div>`).join('');
+        },
+        error(x, s) { if (s !== 'abort') dd.style.display = 'none'; }
+    });
+}
+
+document.getElementById('sizeSubcategorySearch').addEventListener('input', function() {
+    if (this.readOnly) return;
+    if (this.value.trim()) searchSubcats(this.value.trim());
+    else document.getElementById('sizeSubcategoryDropdown').style.display = 'none';
+});
+document.getElementById('sizeSubcategorySearch').addEventListener('focus', function() {
+    if (!this.readOnly && this.value.trim()) searchSubcats(this.value.trim());
+});
+
+document.getElementById('sizeSubcategoryDropdown').addEventListener('click', function(e) {
+    const item = e.target.closest('.dd-item');
+    if (!item) return;
+    const {id, name, ch4} = item.dataset;
+    document.getElementById('sizeSubcategorySearch').value = name;
+    const sel = document.getElementById('sizeSubcategorySelect');
+    if (!sel.querySelector(`option[value="${id}"]`)) {
+        sel.appendChild(new Option(name, id));
     }
+    sel.value = id;
+    this.style.display = 'none';
+    loadSizes(id);
+    setTimeout(()=>document.getElementById('manualSizeInput').focus(), 80);
+});
 
-    function showToast(message, type = 'success') {
-        // Remove existing toasts
-        $('.toast-notification').remove();
+// ── Close dropdowns on outside click ────────────────────────
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#sizeSubcategorySearch, #sizeSubcategoryDropdown'))
+        document.getElementById('sizeSubcategoryDropdown').style.display = 'none';
+});
 
-        const icon = type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-circle-fill';
-        const toastClass = type === 'success' ? 'toast-success' : 'toast-error';
+// ── Save sizes ───────────────────────────────────────────────
+document.getElementById('saveSizesBtn').addEventListener('click', saveSizes);
+document.getElementById('manualSizeInput').addEventListener('keydown', e=>{
+    if (e.key === 'Enter') { e.preventDefault(); saveSizes(); }
+});
 
-        const toast = $(`
-            <div class="toast-notification ${toastClass}">
-                <i class="bi ${icon}"></i>
-                <span>${message}</span>
-                <button class="toast-close">&times;</button>
-            </div>
-        `);
+function saveSizes() {
+    const subcatId = document.getElementById('sizeSubcategorySelect').value;
+    const raw = document.getElementById('manualSizeInput').value.trim();
+    if (!subcatId) { toast('Please select a subcategory first', 'error'); return; }
+    if (!raw)      { toast('Please enter at least one size', 'error'); return; }
+    const sizes = raw.split(',').map(s=>s.trim()).filter(Boolean);
+    if (!sizes.length) { toast('Please enter valid size names', 'error'); return; }
 
-        $('body').append(toast);
+    const btn = document.getElementById('saveSizesBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving…';
 
-        // Auto remove after 3 seconds
-        setTimeout(() => {
-            toast.css('animation', 'slideOut 0.3s ease');
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
-
-        // Manual close
-        toast.find('.toast-close').on('click', function () {
-            toast.css('animation', 'slideOut 0.3s ease');
-            setTimeout(() => toast.remove(), 300);
-        });
-    }
-
-    function renderSizes(list) {
-        if (!list || list.length === 0) {
-            $('#sizeList').html(`
-                <div class="empty-state">
-                    <i class="bi bi-inbox"></i>
-                    <div class="empty-state-text">
-                        No sizes added yet. Add your first size above!
-                    </div>
-                </div>
-            `);
-            $('#sizeCount').hide();
-            return;
-        }
-
-        const html = list.map(s => `
-            <div class="size-badge size-badge-new">
-                <span class="badge-text">${s.name}</span>
-                <button type="button" 
-                        class="remove-size-btn" 
-                        data-size-id="${s.id}"
-                        title="Remove ${s.name}">
-                    &times;
-                </button>
-            </div>
-        `).join('');
-
-        $('#sizeList').html(html);
-        $('#sizeCount').text(list.length).show();
-
-        // Remove animation class after animation completes
-        setTimeout(() => {
-            $('.size-badge-new').removeClass('size-badge-new');
-        }, 500);
-    }
-
-    function setLoading(isLoading) {
-        if (isLoading) {
-            $('#saveSizesBtn').prop('disabled', true).html(`
-                <span class="spinner-border spinner-border-custom me-2" role="status"></span>
-                Saving...
-            `);
+    fetch('/add-subcategory-sizes/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify({ subcategory_id: subcatId, sizes })
+    })
+    .then(r=>r.json())
+    .then(res=>{
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check-circle"></i>Save Sizes';
+        if (res.success) {
+            currentSizes = res.sizes;
+            renderSizeList(res.sizes);
+            document.getElementById('manualSizeInput').value = '';
+            toast(`${sizes.length} size${sizes.length>1?'s':''} saved!`, 'success');
+            needsRefresh = true;
         } else {
-            $('#saveSizesBtn').prop('disabled', false).html(`
-                <i class="bi bi-check-circle me-2"></i>Save Sizes
-            `);
+            toast(res.error || 'Could not save sizes', 'error');
         }
-    }
+    })
+    .catch(()=>{
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check-circle"></i>Save Sizes';
+        toast('Network error — please try again', 'error');
+    });
+}
 
-    let availableSizes = [];
+// ── Remove size (form panel) ─────────────────────────────────
+document.getElementById('sizeList').addEventListener('click', function(e) {
+    const btn = e.target.closest('.remove-form');
+    if (!btn) return;
+    const subcatId = document.getElementById('sizeSubcategorySelect').value;
+    const sizeId   = btn.dataset.sizeId;
+    const sizeName = btn.dataset.sizeName;
+    if (!confirm(`Remove size "${sizeName}"?`)) return;
+    removeSize(subcatId, sizeId, sizeName, true);
+});
 
-    // Load sizes when subcategory changes
-    $('#sizeSubcategorySelect').on('change', function () {
-        const id = $(this).val();
-        if (!id) {
-            $('#sizeList').html(`
-                <div class="empty-state">
-                    <i class="bi bi-inbox"></i>
-                    <div class="empty-state-text">
-                        Select a subcategory to view and manage sizes
-                    </div>
-                </div>
-            `);
-            $('#sizeCount').hide();
-            availableSizes = [];
-            return;
-        }
+// ── Remove size (inline table) ───────────────────────────────
+document.querySelectorAll('.remove-inline').forEach(btn => {
+    btn.onclick = function(e) {
+        e.stopPropagation();
+        const {subcatId, sizeId, sizeName} = this.dataset;
+        if (!confirm(`Remove size "${sizeName}"?`)) return;
+        removeSize(subcatId, sizeId, sizeName, false);
+    };
+});
 
-        $.get(`/get-subcategory-sizes/${id}/`, function (res) {
-            if (res.success) {
-                renderSizes(res.sizes);
-                availableSizes = res.sizes;
+function removeSize(subcatId, sizeId, sizeName, updatePanel) {
+    fetch('/remove-subcategory-size/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify({ subcategory_id: subcatId, size_id: sizeId })
+    })
+    .then(r=>r.json())
+    .then(res=>{
+        if (res.success) {
+            toast(`"${sizeName}" removed`, 'success');
+            if (updatePanel) {
+                currentSizes = res.sizes;
+                renderSizeList(res.sizes);
+                needsRefresh = true;
             } else {
-                renderSizes([]);
-                availableSizes = [];
+                setTimeout(()=>location.reload(), 600);
             }
-        });
-        $('#sizeInputDropdown').hide();
-        $('#manualSizeInput').val('');
-    });
-
-    // Save sizes
-    $('#saveSizesBtn').on('click', function () {
-        const subcatId = $('#sizeSubcategorySelect').val();
-        const sizeName = $('#manualSizeInput').val().trim();
-
-        if (!subcatId) {
-            showToast('Please select a subcategory first', 'error');
-            $('#sizeSubcategorySelect').focus();
-            return;
-        }
-
-        if (!sizeName) {
-            showToast('Please enter at least one size', 'error');
-            $('#manualSizeInput').focus();
-            return;
-        }
-
-        const sizes = sizeName.split(',').map(s => s.trim()).filter(Boolean);
-
-        if (sizes.length === 0) {
-            showToast('Please enter valid size names', 'error');
-            return;
-        }
-
-        setLoading(true);
-
-        $.ajax({
-            url: '/add-subcategory-sizes/',
-            method: 'POST',
-            headers: { 'X-CSRFToken': getCookie('csrftoken') },
-            contentType: 'application/json',
-            data: JSON.stringify({ subcategory_id: subcatId, sizes: sizes }),
-            success: function (res) {
-                setLoading(false);
-                if (res.success) {
-                    renderSizes(res.sizes);
-                    availableSizes = res.sizes;
-                    $('#manualSizeInput').val('');
-                    const count = sizes.length;
-                    showToast(`Successfully added ${count} size${count > 1 ? 's' : ''}!`, 'success');
-                } else {
-                    showToast(res.error || 'Unable to add sizes', 'error');
-                }
-            },
-            error: function () {
-                setLoading(false);
-                showToast('Network error. Please try again.', 'error');
-            }
-        });
-    });
-
-    // Remove size
-    $(document).on('click', '.remove-size-btn', function () {
-        const subcatId = $('#sizeSubcategorySelect').val();
-        const sizeId = $(this).data('size-id');
-        const sizeName = $(this).prev('.badge-text').text();
-
-        if (!subcatId || !sizeId) {
-            showToast('Please select a subcategory first', 'error');
-            return;
-        }
-
-        if (!confirm(`Remove size "${sizeName}"?`)) {
-            return;
-        }
-
-        $.ajax({
-            url: '/remove-subcategory-size/',
-            method: 'POST',
-            headers: { 'X-CSRFToken': getCookie('csrftoken') },
-            contentType: 'application/json',
-            data: JSON.stringify({ subcategory_id: subcatId, size_id: sizeId }),
-            success: function (res) {
-                if (res.success) {
-                    renderSizes(res.sizes);
-                    availableSizes = res.sizes;
-                    showToast(`Size "${sizeName}" removed successfully`, 'success');
-                } else {
-                    showToast(res.error || 'Unable to remove size', 'error');
-                }
-            },
-            error: function () {
-                showToast('Network error. Please try again.', 'error');
-            }
-        });
-    });
-
-    // Enter key to save
-    $('#manualSizeInput').on('keydown', function (e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            $('#saveSizesBtn').click();
-        }
-    });
-
-    // Auto-focus input when subcategory selected
-    $('#sizeSubcategorySelect').on('change', function () {
-        if ($(this).val()) {
-            setTimeout(() => $('#manualSizeInput').focus(), 100);
-        }
-    });
-
-    let xhrSubcategory = null;
-
-    function fetchAndRenderSubcategories(query) {
-        if (xhrSubcategory) {
-            xhrSubcategory.abort();
-        }
-
-        // Show a searching text inside the dropdown
-        $('#sizeSubcategoryDropdown').html('<div class="search-item text-muted"><i class="bi bi-hourglass-split me-1"></i>Searching...</div>').show();
-
-        xhrSubcategory = $.ajax({
-            url: '/search-subcategory/',
-            method: 'GET',
-            data: { q: query },
-            success: function(res) {
-                if (res.subcategories) {
-                    // Show only first 10 items
-                    const items = res.subcategories.slice(0, 10);
-                    renderDropdown(items);
-                } else {
-                    renderDropdown([]);
-                }
-            },
-            error: function(xhr, status, err) {
-                if (status !== 'abort') {
-                    renderDropdown([]);
-                }
-            }
-        });
-    }
-
-    function renderDropdown(items) {
-        if (items.length === 0) {
-            $('#sizeSubcategoryDropdown').html('<div class="search-item text-muted">No matches found</div>').show();
-            return;
-        }
-        const html = items.map(item => `
-            <div class="search-item" data-id="${item.id}" data-ch4="${item.ch4_code || ''}">
-                <div class="fw-bold">${item.name}</div>
-                <div class="small text-muted">${item.category}${item.ch4_code ? ' | CH4: ' + item.ch4_code : ''}</div>
-            </div>
-        `).join('');
-        $('#sizeSubcategoryDropdown').html(html).show();
-    }
-
-    // Search and filter (by name or CH4 code) via AJAX
-    $('#sizeSubcategorySearch').on('input', function () {
-        const term = $(this).val().trim();
-        if (!term) {
-            $('#sizeSubcategoryDropdown').hide();
-            return;
-        }
-        fetchAndRenderSubcategories(term);
-    });
-
-    // Show dropdown on focus (first 10 products via AJAX)
-    $('#sizeSubcategorySearch').on('focus', function () {
-        const term = $(this).val().trim();
-        fetchAndRenderSubcategories(term);
-    });
-
-    // Select item from dropdown
-    $(document).on('click', '#sizeSubcategoryDropdown .search-item', function () {
-        const id = $(this).data('id');
-        const name = $(this).find('.fw-bold').text();
-        const ch4 = $(this).data('ch4') || '';
-        if (id) {
-            // Check if option already exists in the select, if not add it dynamically
-            if ($(`#sizeSubcategorySelect option[value="${id}"]`).length === 0) {
-                $('#sizeSubcategorySelect optgroup').append(
-                    $('<option>', {
-                        value: id,
-                        text: name,
-                        'data-ch4-code': ch4
-                    })
-                );
-            }
-            $('#sizeSubcategorySelect').val(String(id)).trigger('change');
-            $('#sizeSubcategorySearch').val(name);
-            $('#sizeSubcategoryDropdown').hide();
-        }
-    });
-
-    // Hide dropdown when clicking outside
-    $(document).on('click', function (e) {
-        if (!$(e.target).closest('#sizeSubcategorySearch, #sizeSubcategoryDropdown').length) {
-            $('#sizeSubcategoryDropdown').hide();
-        }
-    });
-
-    function renderSizeDropdown(items) {
-        if (items.length === 0) {
-            $('#sizeInputDropdown').html('<div class="search-item">No matches found</div>').show();
-            return;
-        }
-        const html = items.map(item =>
-            `<div class="search-item" data-size-name="${item.name}">${item.name}</div>`
-        ).join('');
-        $('#sizeInputDropdown').html(html).show();
-    }
-
-    // Show size suggestions on input
-    $('#manualSizeInput').on('input', function () {
-        const inputVal = $(this).val().trim();
-        if (!inputVal) {
-            if (availableSizes.length > 0) {
-                renderSizeDropdown(availableSizes.slice(0, 10));
-            } else {
-                $('#sizeInputDropdown').hide();
-            }
-            return;
-        }
-
-        // Parse comma-separated input and filter based on last item
-        const items = inputVal.split(',');
-        const lastItem = items[items.length - 1].trim().toLowerCase();
-
-        if (lastItem) {
-            const filtered = availableSizes.filter(s => s.name.toLowerCase().indexOf(lastItem) !== -1);
-            renderSizeDropdown(filtered.slice(0, 10));
         } else {
-            renderSizeDropdown(availableSizes.slice(0, 10));
+            toast(res.error || 'Could not remove size', 'error');
         }
-    });
-
-    // Show dropdown on focus
-    $('#manualSizeInput').on('focus', function () {
-        if (availableSizes.length > 0) {
-            renderSizeDropdown(availableSizes.slice(0, 10));
-        }
-    });
-
-    // Click suggestion to add to input
-    $(document).on('click', '#sizeInputDropdown .search-item', function () {
-        const sizeName = $(this).data('size-name');
-        const currentVal = $('#manualSizeInput').val().trim();
-
-        if (currentVal) {
-            const items = currentVal.split(',');
-            items[items.length - 1] = sizeName;
-            $('#manualSizeInput').val(items.join(', ') + ', ');
-        } else {
-            $('#manualSizeInput').val(sizeName + ', ');
-        }
-
-        $('#sizeInputDropdown').hide();
-        $('#manualSizeInput').focus();
-    });
-
-    // Hide size dropdown outside click
-    $(document).on('click', function (e) {
-        if (!$(e.target).closest('#manualSizeInput, #sizeInputDropdown').length) {
-            $('#sizeInputDropdown').hide();
-        }
-    });
+    })
+    .catch(()=>toast('Network error', 'error'));
+}
 </script>
 {% endblock %}
-</document_content>

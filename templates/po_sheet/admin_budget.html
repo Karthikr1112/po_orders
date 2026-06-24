@@ -151,13 +151,12 @@
                     <thead>
                         <tr>
                             <th style="width: 5%">#</th>
-                            <th style="width: 40%">Sub-Category</th>
-                            <th style="width: 12%">CH4 Code</th>
-                            <th style="width: 13%" class="text-end">Approved Budget</th>
-                            <th style="width: 13%" class="text-end">Spent Amount</th>
-                            <th style="width: 13%" class="text-end">Balance Budget</th>
-                            <th style="width: 15%">Notes</th>
-                            <th style="width: 9%" class="text-center">Action</th>
+                            <th style="width: 30%">Sub-Category</th>
+                            <th style="width: 15%" class="text-end">Approved Budget</th>
+                            <th style="width: 15%" class="text-end">Spent Amount</th>
+                            <th style="width: 15%" class="text-end">Balance Budget</th>
+                            <th style="width: 12%">Notes</th>
+                            <th style="width: 8%" class="text-center">Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -165,7 +164,6 @@
                         <tr class="budget-row">
                             <td class="align-middle text-center fw-bold text-muted">{{ page_obj.start_index|add:forloop.counter0 }}</td>
                             <td class="align-middle fw-bold text-dark subcat-name">{{ item.name }}</td>
-                            <td class="align-middle text-muted">{{ item.ch4_code }}</td>
                             <td class="align-middle text-end fw-bold text-dark">₹{{ item.approved_amount|floatformat:2 }}</td>
                             <td class="align-middle text-end text-muted">₹{{ item.spent_amount|floatformat:2 }}</td>
                             <td class="align-middle text-end fw-bold {% if item.balance_amount >= 0 %}text-success{% else %}text-danger{% endif %}">
@@ -186,7 +184,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="8" class="text-center py-4 text-muted">No subcategories found.</td>
+                            <td colspan="7" class="text-center py-4 text-muted">No subcategories found.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
