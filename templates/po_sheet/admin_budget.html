@@ -4,16 +4,14 @@
 
 {% block content %}
 <style>
-    /* Luxury Card styling */
     .luxury-card {
         background: #ffffff;
         border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        border: 1px solid rgba(226,232,240,0.8);
         margin-bottom: 24px;
         overflow: hidden;
     }
-
     .luxury-card-header {
         background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
         padding: 15px 20px;
@@ -22,18 +20,9 @@
         color: #1e293b;
         font-size: 0.95rem;
     }
+    .luxury-card-body { padding: 20px; }
 
-    .luxury-card-body {
-        padding: 20px;
-    }
-
-    /* Grid Table styling */
-    .sheet-table {
-        width: 100%;
-        border-collapse: separate;
-        border-spacing: 0;
-    }
-
+    .sheet-table { width: 100%; border-collapse: separate; border-spacing: 0; }
     .sheet-table th {
         background-color: #f1f5f9;
         color: #475569;
@@ -45,192 +34,285 @@
         border-bottom: 2px solid #cbd5e1;
         text-align: left;
     }
-
     .sheet-table td {
         padding: 12px 10px;
         border-bottom: 1px solid #e2e8f0;
         vertical-align: middle;
     }
-
-    .sheet-table tbody tr:hover {
-        background-color: rgba(79, 70, 229, 0.03);
-    }
+    .sheet-table tbody tr:hover { background-color: rgba(79,70,229,0.03); }
 
     .btn-indigo {
         background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
-        color: #fff;
-        border: none;
-        transition: all 0.2s;
+        color: #fff; border: none; transition: all 0.2s;
     }
     .btn-indigo:hover {
         background: linear-gradient(135deg, #3730a3 0%, #2e268f 100%);
-        color: #fff;
-        transform: translateY(-1px);
+        color: #fff; transform: translateY(-1px);
     }
 
-    /* Custom Premium Select Dropdown Styling */
-    .custom-select-container {
-        position: relative;
-        width: 100%;
+    /* Buyer filter bar */
+    .buyer-filter-bar {
+        background: #fff;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
     }
+    .buyer-filter-label {
+        font-size: 0.75rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #475569;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+    .buyer-filter-label i { color: #4f46e5; }
+    .buyer-pills { display: flex; flex-wrap: wrap; gap: 0.4rem; flex: 1; }
+    .buyer-pill {
+        padding: 0.3rem 0.9rem;
+        border-radius: 20px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        border: 1.5px solid #e2e8f0;
+        background: #f8fafc;
+        color: #475569;
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.15s;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+    .buyer-pill:hover {
+        border-color: #4f46e5;
+        color: #4f46e5;
+        background: rgba(79,70,229,0.06);
+    }
+    .buyer-pill.active {
+        background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+        color: #fff;
+        border-color: transparent;
+        box-shadow: 0 3px 10px rgba(79,70,229,0.25);
+    }
+    .buyer-pill.active:hover { color: #fff; }
+
+    /* Buyer tag in table */
+    .buyer-tag {
+        display: inline-flex;
+        align-items: center;
+        background: rgba(79,70,229,0.08);
+        color: #4f46e5;
+        border: 1px solid rgba(79,70,229,0.15);
+        border-radius: 5px;
+        padding: 0.15rem 0.5rem;
+        font-size: 0.7rem;
+        font-weight: 700;
+        margin: 1px;
+    }
+
+    /* Subcategory search dropdown */
+    .custom-select-container { position: relative; width: 100%; }
     .custom-select-input {
         cursor: pointer;
         background-color: #fff !important;
         padding-right: 30px !important;
     }
     .custom-select-arrow {
-        position: absolute;
-        right: 12px;
-        top: 50%;
+        position: absolute; right: 12px; top: 50%;
         transform: translateY(-50%);
-        color: #94a3b8;
-        pointer-events: none;
-        font-size: 0.8rem;
+        color: #94a3b8; pointer-events: none; font-size: 0.8rem;
     }
     .custom-select-dropdown {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
+        position: absolute; top: 100%; left: 0; right: 0;
         background: #fff;
-        border: 1px solid rgba(148, 163, 184, 0.25);
+        border: 1px solid rgba(148,163,184,0.25);
         border-radius: 8px;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-        max-height: 250px;
-        overflow-y: auto;
-        z-index: 1050;
-        margin-top: 4px;
-        padding: 4px;
+        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+        max-height: 250px; overflow-y: auto;
+        z-index: 1050; margin-top: 4px; padding: 4px;
     }
     .custom-select-option {
-        padding: 8px 12px;
-        cursor: pointer;
-        font-size: 0.85rem;
-        color: #1e293b;
-        border-radius: 6px;
-        transition: background-color 0.15s, color 0.15s;
+        padding: 8px 12px; cursor: pointer;
+        font-size: 0.85rem; color: #1e293b;
+        border-radius: 6px; transition: background-color 0.15s;
     }
     .custom-select-option:hover {
         background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%) !important;
         color: #fff !important;
-        border: none !important;
     }
-    .custom-select-option.selected {
-        background-color: #f1f5f9;
-        font-weight: 600;
+
+    /* SubCategory Boxes */
+    .subcat-box-card {
+        background: #ffffff;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 1rem;
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        user-select: none;
+    }
+    .subcat-box-card:hover {
+        border-color: #4f46e5;
+        background: rgba(79, 70, 229, 0.04);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    .subcat-box-card.active {
+        background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+        color: #ffffff !important;
+        border-color: transparent;
+        box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+    }
+    .subcat-box-card.active .subcat-name {
+        color: #ffffff !important;
+    }
+    .subcat-box-card.active i {
+        color: #ffffff !important;
+    }
+    .subcat-name {
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: #1e293b;
     }
 </style>
 
 <div class="container-fluid p-2 p-md-4">
-    
+
     <!-- HEADER -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div>
-            <h4 class="fw-bold text-dark mb-1"><i class="bi bi-cash-coin me-2 text-indigo"></i>Admin Budget Management</h4>
-            <p class="text-muted small mb-0">Configure and track budget allocation by SubCategory instead of Vendor.</p>
+            <h4 class="fw-bold text-dark mb-1">
+                <i class="bi bi-cash-coin me-2 text-indigo"></i>Admin Budget Management
+            </h4>
+            <p class="text-muted small mb-0">
+                {% if selected_buyer %}
+                    Showing subcategories for buyer: <strong>{{ selected_buyer.name }}</strong>
+                {% else %}
+                    Configure and track budget allocation by SubCategory
+                {% endif %}
+            </p>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 align-items-center">
+            <a href="{% url 'budget_spent_details' %}{% if selected_buyer %}?buyer={{ selected_buyer.id }}{% endif %}{% if season_id %}&season={{ season_id }}{% endif %}" class="btn btn-sm btn-outline-primary d-flex align-items-center gap-1" style="border-radius: 4px !important;">
+                <i class="bi bi-pie-chart-fill"></i> Spent Amount Details
+            </a>
+            {% if selected_buyer %}
             <div class="custom-select-container" style="width: 300px;">
-                <input type="text" id="budgetSubcatSelect" class="form-control form-control-sm custom-select-input" placeholder="Search & Select SubCategory..." data-selected-value="">
+                <input type="text" id="budgetSubcatSelect"
+                    class="form-control form-control-sm custom-select-input"
+                    placeholder="Search & Select SubCategory..."
+                    data-selected-value="">
                 <span class="custom-select-arrow"><i class="bi bi-chevron-down"></i></span>
-                <div class="custom-select-dropdown d-none">
-                </div>
+                <div class="custom-select-dropdown d-none"></div>
             </div>
+            {% endif %}
         </div>
     </div>
 
-    <!-- MAIN GRID -->
-    <div class="luxury-card">
+    <!-- BUYER & SEASON FILTER BAR -->
+    <div class="buyer-filter-bar d-flex align-items-center gap-4 py-3 px-4">
+        <div class="d-flex align-items-center gap-2">
+            <label for="buyerSelect" class="buyer-filter-label mb-0">
+                <i class="bi bi-person-badge"></i>Buyer
+            </label>
+            <select id="buyerSelect" class="form-select form-select-sm" style="min-width: 200px;">
+                <option value="">All Buyers</option>
+                {% for buyer in all_buyers %}
+                <option value="{{ buyer.id }}" {% if selected_buyer.id == buyer.id %}selected{% endif %}>
+                    {{ buyer.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            <label for="seasonSelect" class="buyer-filter-label mb-0">
+                <i class="bi bi-calendar-event"></i>Season
+            </label>
+            <select id="seasonSelect" class="form-select form-select-sm" style="min-width: 180px;">
+                <option value="">All Seasons</option>
+                {% for season in all_seasons %}
+                <option value="{{ season.id }}" {% if selected_season.id == season.id %}selected{% endif %}>
+                    {{ season.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        {% if selected_buyer or selected_season %}
+        <a href="?" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 ms-auto">
+            <i class="bi bi-x-circle"></i>Clear Filters
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- MAIN TABLE -->
+    <!-- MAIN TABLE -->
+    {% if selected_buyer %}
+    <!-- SUBCATEGORY SELECT DROPDOWN -->
+    <div class="luxury-card mb-4">
         <div class="luxury-card-header d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-table me-2 text-indigo"></i>SubCategory Budgets</span>
+            <span>
+                <i class="bi bi-tag-fill me-2 text-indigo"></i>
+                {% if selected_buyer %}{{ selected_buyer.name }} — {% endif %}Select Sub-Category
+            </span>
             <span class="badge bg-light text-dark border">{{ total_budgeted_count }} Items</span>
         </div>
-        <div class="luxury-card-body p-0">
-            <div class="table-responsive">
-                <table class="sheet-table mb-0" id="budgetTable">
-                    <thead>
-                        <tr>
-                            <th style="width: 5%">#</th>
-                            <th style="width: 30%">Sub-Category</th>
-                            <th style="width: 15%" class="text-end">Approved Budget</th>
-                            <th style="width: 15%" class="text-end">Spent Amount</th>
-                            <th style="width: 15%" class="text-end">Balance Budget</th>
-                            <th style="width: 12%">Notes</th>
-                            <th style="width: 8%" class="text-center">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+        <div class="luxury-card-body">
+            <div class="row align-items-center">
+                <div class="col-12 col-md-6 col-lg-4">
+                    <label for="subcatSelect" class="form-label fw-bold text-muted small text-uppercase mb-2">Choose Sub-Category</label>
+                    <select id="subcatSelect" class="form-select form-select-sm" style="border-radius: 6px !important; font-weight: 600; color: #1e293b;">
+                        <option value="">-- Choose Sub-Category --</option>
                         {% for item in subcategories %}
-                        <tr class="budget-row">
-                            <td class="align-middle text-center fw-bold text-muted">{{ page_obj.start_index|add:forloop.counter0 }}</td>
-                            <td class="align-middle fw-bold text-dark subcat-name">{{ item.name }}</td>
-                            <td class="align-middle text-end fw-bold text-dark">₹{{ item.approved_amount|floatformat:2 }}</td>
-                            <td class="align-middle text-end text-muted">₹{{ item.spent_amount|floatformat:2 }}</td>
-                            <td class="align-middle text-end fw-bold {% if item.balance_amount >= 0 %}text-success{% else %}text-danger{% endif %}">
-                                ₹{{ item.balance_amount|floatformat:2 }}
-                            </td>
-                            <td class="align-middle text-muted small" style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                {{ item.notes|default:'—' }}
-                            </td>
-                            <td class="align-middle text-center">
-                                <button type="button" class="btn btn-sm btn-indigo edit-budget-btn py-1 px-3"
-                                        data-id="{{ item.id }}"
-                                        data-name="{{ item.name }}"
-                                        data-approved="{{ item.approved_amount|floatformat:2 }}"
-                                        data-notes="{{ item.notes }}">
-                                    <i class="bi bi-pencil-square me-1"></i>Edit
-                                </button>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="7" class="text-center py-4 text-muted">No subcategories found.</td>
-                        </tr>
+                        <option value="{{ item.id }}" data-name="{{ item.name }}">{{ item.name }}</option>
                         {% endfor %}
-                    </tbody>
-                </table>
+                    </select>
+                </div>
             </div>
         </div>
-        
-        <!-- Pagination -->
         {% if page_obj.has_other_pages %}
-        <div class="card-footer bg-white border-top d-flex justify-content-between align-items-center py-3">
+        <div class="card-footer bg-white border-top d-flex justify-content-between align-items-center py-2 flex-wrap gap-2">
             <div class="small text-muted">
                 Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} items
             </div>
-            <nav aria-label="Page navigation">
+            <nav>
                 <ul class="pagination pagination-sm mb-0">
                     {% if page_obj.has_previous %}
                     <li class="page-item">
-                        <a class="page-link" href="?page=1" aria-label="First">
-                            <span aria-hidden="true">&laquo;&laquo;</span>
-                        </a>
+                        <a class="page-link" href="?buyer={{ buyer_id }}&season={{ season_id }}&page=1">&laquo;&laquo;</a>
                     </li>
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Previous">
-                            <span aria-hidden="true">&laquo;</span>
-                        </a>
+                        <a class="page-link" href="?buyer={{ buyer_id }}&season={{ season_id }}&page={{ page_obj.previous_page_number }}">&laquo;</a>
                     </li>
                     {% endif %}
-
                     {% for num in page_obj.paginator.page_range %}
                         {% if page_obj.number == num %}
                             <li class="page-item active"><span class="page-link">{{ num }}</span></li>
                         {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                            <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                            <li class="page-item">
+                                <a class="page-link" href="?buyer={{ buyer_id }}&season={{ season_id }}&page={{ num }}">{{ num }}</a>
+                            </li>
                         {% endif %}
                     {% endfor %}
-
                     {% if page_obj.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Next">
-                            <span aria-hidden="true">&raquo;</span>
-                        </a>
+                        <a class="page-link" href="?buyer={{ buyer_id }}&season={{ season_id }}&page={{ page_obj.next_page_number }}">&raquo;</a>
                     </li>
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}" aria-label="Last">
-                            <span aria-hidden="true">&raquo;&raquo;</span>
-                        </a>
+                        <a class="page-link" href="?buyer={{ buyer_id }}&season={{ season_id }}&page={{ page_obj.paginator.num_pages }}">&raquo;&raquo;</a>
                     </li>
                     {% endif %}
                 </ul>
@@ -239,6 +321,152 @@
         {% endif %}
     </div>
 
+    <!-- DETAILS TABLE -->
+    <div class="luxury-card d-none" id="subcategoryDetailsCard">
+        <div class="luxury-card-header d-flex justify-content-between align-items-center">
+            <span>
+                <i class="bi bi-table me-2 text-indigo"></i>
+                <span id="selectedSubcatTitle" class="fw-bold">SubCategory</span> Budget Details
+            </span>
+            <span class="badge bg-indigo text-white">Active Selection</span>
+        </div>
+        <div class="luxury-card-body p-0">
+            <div class="table-responsive">
+                <table class="sheet-table mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width:4%">#</th>
+                            <th style="width:20%">Sub-Category</th>
+                            <th style="width:16%" class="text-center">Sales Price Range (₹)</th>
+                            <th style="width:16%" class="text-center">Buying Price Range (₹)</th>
+                            <th style="width:11%" class="text-end">Approved Budget (₹)</th>
+                            <th style="width:7%" class="text-end">Quantity Set</th>
+                            <th style="width:12%" class="text-end">Spent Amount (₹)</th>
+                            <th style="width:12%" class="text-end">Balance (₹)</th>
+                            <th style="width:6%" class="text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in subcategories %}
+                        <tr class="subcategory-details-row d-none" id="subcat-row-{{ item.id }}">
+                            <td class="text-center fw-bold text-muted">{{ page_obj.start_index|add:forloop.counter0 }}</td>
+                            <td class="fw-bold text-dark">{{ item.name }}</td>
+                            <!-- Sales Price Range (₹) -->
+                            <td class="text-center">
+                                <div class="d-flex flex-column gap-1 align-items-center sales-range-container">
+                                    {% for pr in item.price_ranges %}
+                                    <div class="d-flex gap-1 align-items-center inline-sales-range-row" data-range-id="{{ pr.id }}">
+                                        <input type="number" class="form-control form-control-sm text-center inline-sales-from fw-semibold" value="{{ pr.sales_from_range|floatformat:0 }}" style="width: 70px; border-color: #10b981; color: #047857; font-size: 0.78rem; padding: 0.2rem 0.4rem; border-radius: 4px !important;" placeholder="0">
+                                        <span class="text-muted small" style="font-size: 0.72rem;">to</span>
+                                        <input type="number" class="form-control form-control-sm text-center inline-sales-to fw-semibold" value="{{ pr.sales_to_range|floatformat:0 }}" style="width: 70px; border-color: #10b981; color: #047857; font-size: 0.78rem; padding: 0.2rem 0.4rem; border-radius: 4px !important;" placeholder="0">
+                                    </div>
+                                    {% empty %}
+                                    <span class="text-muted small">—</span>
+                                    {% endfor %}
+                                    <div class="add-range-wrapper mt-1">
+                                        <button type="button" class="btn btn-xs btn-outline-success add-range-btn p-0 d-flex align-items-center justify-content-center" data-subcategory-id="{{ item.id }}" style="width: 22px; height: 22px; border-radius: 4px !important;" title="Add Price Range">
+                                            <i class="bi bi-plus-lg" style="font-size: 0.75rem;"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </td>
+                            <!-- Buying Price Range (₹) -->
+                            <td class="text-center">
+                                <div class="d-flex flex-column gap-1 align-items-center buying-range-container">
+                                    {% for pr in item.price_ranges %}
+                                    <div class="d-flex gap-1 align-items-center inline-buying-range-row" data-range-id="{{ pr.id }}">
+                                        <input type="number" class="form-control form-control-sm text-center inline-buying-from fw-semibold" value="{{ pr.buying_from_range|floatformat:0 }}" style="width: 70px; border-color: #0ea5e9; color: #0369a1; font-size: 0.78rem; padding: 0.2rem 0.4rem; border-radius: 4px !important;" placeholder="0">
+                                        <span class="text-muted small" style="font-size: 0.72rem;">to</span>
+                                        <input type="number" class="form-control form-control-sm text-center inline-buying-to fw-semibold" value="{{ pr.buying_to_range|floatformat:0 }}" style="width: 70px; border-color: #0ea5e9; color: #0369a1; font-size: 0.78rem; padding: 0.2rem 0.4rem; border-radius: 4px !important;" placeholder="0">
+                                    </div>
+                                    {% empty %}
+                                    <span class="text-muted small">—</span>
+                                    {% endfor %}
+                                    <div class="add-range-wrapper mt-1">
+                                        <button type="button" class="btn btn-xs btn-outline-success add-range-btn p-0 d-flex align-items-center justify-content-center" data-subcategory-id="{{ item.id }}" style="width: 22px; height: 22px; border-radius: 4px !important;" title="Add Price Range">
+                                            <i class="bi bi-plus-lg" style="font-size: 0.75rem;"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </td>
+                            <!-- Approved Budget (per price range) -->
+                            <td class="text-end" style="vertical-align: top;">
+                                <div class="d-flex flex-column gap-1 align-items-end approved-amount-container">
+                                    {% for pr in item.price_ranges %}
+                                    <input type="number" step="0.01"
+                                        class="form-control form-control-sm text-end inline-range-approved-amount fw-bold"
+                                        data-range-id="{{ pr.id }}"
+                                        value="{{ pr.approved_amount|floatformat:2 }}"
+                                        style="width: 100px; border-color: #cbd5e1; color: #1e293b; font-size: 0.78rem; padding: 0.2rem 0.4rem; border-radius: 4px !important;"
+                                        placeholder="0.00">
+                                    {% endfor %}
+                                    <div style="height: 22px;"></div>
+                                </div>
+                            </td>
+                            <!-- Quantity Set (per price range) -->
+                            <td class="text-end" style="vertical-align: top;">
+                                <div class="d-flex flex-column gap-1 align-items-end approved-qty-container">
+                                    {% for pr in item.price_ranges %}
+                                    <input type="number" step="1"
+                                        class="form-control form-control-sm text-end inline-range-approved-qty fw-bold"
+                                        data-range-id="{{ pr.id }}"
+                                        value="{{ pr.approved_quantity }}"
+                                        style="width: 80px; border-color: #cbd5e1; color: #1e293b; font-size: 0.78rem; padding: 0.2rem 0.4rem; border-radius: 4px !important;"
+                                        placeholder="0">
+                                    {% endfor %}
+                                    <div style="height: 22px;"></div>
+                                </div>
+                            </td>
+                            <!-- Spent Amount (per price range) -->
+                            <td class="text-end" style="vertical-align: top;">
+                                <div class="d-flex flex-column gap-1 align-items-end spent-amount-container">
+                                    {% for pr in item.price_ranges %}
+                                    <div class="d-flex align-items-center justify-content-end fw-semibold text-warning" style="height: 28px; font-size: 0.8rem; padding-right: 4px;">
+                                        ₹{{ pr.spent_amount|floatformat:2 }}
+                                    </div>
+                                    {% endfor %}
+                                    <div style="height: 22px;"></div>
+                                </div>
+                            </td>
+                            <!-- Balance (per price range) -->
+                            <td class="text-end" style="vertical-align: top;">
+                                <div class="d-flex flex-column gap-1 align-items-end balance-amount-container">
+                                    {% for pr in item.price_ranges %}
+                                    <div class="d-flex align-items-center justify-content-end fw-bold {% if pr.balance < 0 %}text-danger{% else %}text-success{% endif %}" style="height: 28px; font-size: 0.8rem; padding-right: 4px;">
+                                        ₹{{ pr.balance|floatformat:2 }}
+                                    </div>
+                                    {% endfor %}
+                                    <div style="height: 22px;"></div>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <button type="button"
+                                    class="btn btn-sm btn-indigo edit-budget-btn py-1 px-3"
+                                    data-id="{{ item.id }}"
+                                    data-name="{{ item.name }}"
+                                    data-approved="{{ item.approved_amount|floatformat:2 }}"
+                                    data-quantity="{{ item.approved_quantity }}"
+                                    data-notes="{{ item.notes }}"
+                                    data-ranges='{{ item.price_ranges_json|safe }}'
+                                    style="border-radius: 4px !important;">
+                                    <i class="bi bi-pencil-square me-1"></i>Edit
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="luxury-card p-5 text-center text-muted" style="border-radius: 12px; background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
+        <i class="bi bi-person-badge-fill text-indigo mb-3" style="font-size: 3rem; color: #4f46e5;"></i>
+        <h4 class="fw-bold text-dark">No Buyer Selected</h4>
+        <p class="text-muted small mb-0">Please choose a Buyer from the filter dropdown above to view, add, or configure subcategory budgets.</p>
+    </div>
+    {% endif %}
+
 </div>
 
 <!-- EDIT BUDGET MODAL -->
@@ -246,8 +474,10 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-indigo text-white">
-                <h5 class="modal-title fw-bold"><i class="bi bi-cash-coin me-2"></i>Update SubCategory Budget</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-cash-coin me-2"></i>Update SubCategory Budget
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form method="post">
                 {% csrf_token %}
@@ -255,20 +485,63 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label fw-bold text-muted small text-uppercase">Sub-Category</label>
-                        <input type="text" class="form-control" id="modalSubcatName" readonly style="background-color: #f8fafc; font-weight: 600;">
+                        <input type="text" class="form-control" id="modalSubcatName" readonly
+                            style="background-color:#f8fafc; font-weight:600; border-radius: 4px !important;">
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold text-muted small text-uppercase">Approved Budget Amount (₹) *</label>
-                        <input type="number" class="form-control" name="approved_amount" id="modalApprovedAmount" step="0.01" min="0" required>
+                        <input type="number" class="form-control" name="approved_amount"
+                            id="modalApprovedAmount" step="0.01" min="0" required style="border-radius: 4px !important;">
                     </div>
                     <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small text-uppercase">Quantity Set *</label>
+                        <input type="number" class="form-control" name="approved_quantity"
+                            id="modalApprovedQuantity" step="1" min="0" required style="border-radius: 4px !important;">
+                    </div>
+
+                    <!-- Price Ranges Section -->
+                    <div id="modalPriceRangesContainer" class="mt-4 d-none">
+                        <hr>
+                        <h6 class="fw-bold mb-3 text-dark" style="font-size: 0.9rem;">
+                            <i class="bi bi-tag-fill me-1 text-indigo"></i>Price Range Allocations
+                        </h6>
+                        <div class="row">
+                            <!-- Left: Sales Price Ranges (Green) -->
+                            <div class="col-6">
+                                <div class="p-2 border rounded-0" style="background-color: rgba(16,185,129,0.03); border-color: rgba(16,185,129,0.2) !important;">
+                                    <label class="form-label fw-bold text-success small text-uppercase mb-2 d-block text-center" style="font-size:0.7rem; letter-spacing: 0.5px;">
+                                        Sales Price Range
+                                    </label>
+                                    <div id="modalSalesRangesList" class="d-flex flex-column gap-2 align-items-center">
+                                        <!-- Populated via JS -->
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Right: Buying Price Ranges (Blue) -->
+                            <div class="col-6">
+                                <div class="p-2 border rounded-0" style="background-color: rgba(14,165,233,0.03); border-color: rgba(14,165,233,0.2) !important;">
+                                    <label class="form-label fw-bold text-info small text-uppercase mb-2 d-block text-center" style="font-size:0.7rem; letter-spacing: 0.5px;">
+                                        Buying Price Range
+                                    </label>
+                                    <div id="modalBuyingRangesList" class="d-flex flex-column gap-2 align-items-center">
+                                        <!-- Populated via JS -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3 mt-3">
                         <label class="form-label fw-bold text-muted small text-uppercase">Notes</label>
-                        <textarea class="form-control" name="notes" id="modalNotes" rows="3" placeholder="Enter optional notes..."></textarea>
+                        <textarea class="form-control" name="notes" id="modalNotes" rows="3"
+                            placeholder="Enter optional notes..." style="border-radius: 4px !important;"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-indigo"><i class="bi bi-check-circle me-1"></i>Save Changes</button>
+                    <button type="submit" class="btn btn-indigo">
+                        <i class="bi bi-check-circle me-1"></i>Save Changes
+                    </button>
                 </div>
             </form>
         </div>
@@ -279,112 +552,424 @@
 
 {% block extra_scripts %}
 <script>
-    $(document).ready(function() {
-        let subcatXhr = null;
+$(document).ready(function () {
+    let subcatXhr = null;
 
-        function fetchSubcategories(inputEl, query) {
-            if (subcatXhr) subcatXhr.abort();
-            let dropdown = $(inputEl).closest('.custom-select-container').find('.custom-select-dropdown');
-            dropdown.html('<div class="p-2 text-muted small"><i class="bi bi-hourglass-split me-1"></i>Searching...</div>').removeClass('d-none');
+    // Handle SubCategory select change to show details
+    $(document).on('change', '#subcatSelect', function () {
+        const select = $(this);
+        const subcatId = select.val();
+        
+        if (subcatId) {
+            const name = select.find('option:selected').data('name');
+
+            $('.subcategory-details-row').addClass('d-none');
+            $(`#subcat-row-${subcatId}`).removeClass('d-none');
+
+            $('#selectedSubcatTitle').text(name);
+            $('#subcategoryDetailsCard').removeClass('d-none');
+        } else {
+            $('.subcategory-details-row').addClass('d-none');
+            $('#subcategoryDetailsCard').addClass('d-none');
+        }
+    });
+
+    // Auto-select the first option if any exist
+    const firstOption = $('#subcatSelect option').eq(1); // index 0 is "-- Choose Sub-Category --"
+    if (firstOption.length && firstOption.val()) {
+        $('#subcatSelect').val(firstOption.val()).trigger('change');
+    }
+
+    function fetchSubcategories(query) {
+        if (subcatXhr) subcatXhr.abort();
+        const dd = $('#budgetSubcatSelect').closest('.custom-select-container').find('.custom-select-dropdown');
+        dd.html('<div class="p-2 text-muted small"><i class="bi bi-hourglass-split me-1"></i>Searching...</div>').removeClass('d-none');
+
+        const buyerId = $('#buyerSelect').val() || '';
+
+        subcatXhr = $.ajax({
+            url: '/search-subcategory/',
+            data: { q: query, buyer: buyerId },
+            success(res) {
+                let html = '<div class="custom-select-option" data-value="" data-id="" data-approved="0" data-quantity="0" data-notes="">— All SubCategories —</div>';
+                if (res.subcategories && res.subcategories.length) {
+                    html += res.subcategories.slice(0, 10).map(s => `
+                        <div class="custom-select-option"
+                             data-value="${s.name}" data-id="${s.id}"
+                             data-approved="${parseFloat(s.approved_amount || 0).toFixed(2)}"
+                             data-quantity="${parseInt(s.approved_quantity || 0)}"
+                             data-notes="${s.notes || ''}">
+                            ${s.name}
+                        </div>`).join('');
+                } else if (query) {
+                    html += '<div class="p-2 text-muted small">No subcategories found</div>';
+                }
+                dd.html(html);
+            },
+            error(x, s) { if (s !== 'abort') dd.html('<div class="p-2 text-danger small">Error loading</div>'); }
+        });
+    }
+
+    $(document).on('focus click', '#budgetSubcatSelect', function () {
+        fetchSubcategories($(this).val());
+    });
+    $(document).on('input', '#budgetSubcatSelect', function () {
+        fetchSubcategories($(this).val());
+    });
+
+    function renderModalRanges(ranges) {
+        const container = $('#modalPriceRangesContainer');
+        const salesList = $('#modalSalesRangesList');
+        const buyingList = $('#modalBuyingRangesList');
+        
+        salesList.empty();
+        buyingList.empty();
+        
+        if (ranges && ranges.length > 0) {
+            container.removeClass('d-none');
+            ranges.forEach(r => {
+                salesList.append(`
+                    <div class="d-flex gap-1 align-items-center" data-range-id="${r.id}">
+                        <input type="number" class="form-control form-control-sm text-center fw-semibold" name="sales_from_${r.id}" value="${Math.round(r.sales_from)}" style="width: 70px; border-color: #10b981; color: #047857; font-size: 0.78rem; border-radius: 4px !important;">
+                        <span class="text-muted small">-</span>
+                        <input type="number" class="form-control form-control-sm text-center fw-semibold" name="sales_to_${r.id}" value="${Math.round(r.sales_to)}" style="width: 70px; border-color: #10b981; color: #047857; font-size: 0.78rem; border-radius: 4px !important;">
+                    </div>
+                `);
+                
+                buyingList.append(`
+                    <div class="d-flex gap-1 align-items-center" data-range-id="${r.id}">
+                        <input type="number" class="form-control form-control-sm text-center fw-semibold" name="buying_from_${r.id}" value="${Math.round(r.buying_from)}" style="width: 60px; border-color: #0ea5e9; color: #0369a1; font-size: 0.78rem; border-radius: 4px !important;" placeholder="0">
+                        <span class="text-muted small">-</span>
+                        <input type="number" class="form-control form-control-sm text-center fw-semibold" name="buying_to_${r.id}" value="${Math.round(r.buying_to)}" style="width: 60px; border-color: #0ea5e9; color: #0369a1; font-size: 0.78rem; border-radius: 4px !important;" placeholder="0">
+                        <button type="button" class="btn btn-xs btn-outline-danger delete-range-btn p-0 d-flex align-items-center justify-content-center" data-range-id="${r.id}" style="width: 20px; height: 20px; border-radius: 4px !important;" title="Delete Range">
+                            <i class="bi bi-trash" style="font-size: 0.7rem;"></i>
+                        </button>
+                    </div>
+                `);
+            });
+        } else {
+            container.addClass('d-none');
+        }
+    }
+
+    $(document).on('mousedown', '.custom-select-container .custom-select-option', function () {
+        const val = $(this).data('value');
+        const id  = $(this).data('id');
+        if (val) {
+            $('#budgetSubcatSelect').val(val);
+            $('#modalSubcatId').val(id);
+            $('#modalSubcatName').val(val);
+            $('#modalApprovedAmount').val($(this).data('approved'));
+            $('#modalApprovedQuantity').val($(this).data('quantity') || 0);
+            $('#modalNotes').val($(this).data('notes') || '');
             
-            subcatXhr = $.ajax({
-                url: '/search-subcategory/',
-                method: 'GET',
-                data: { q: query },
-                success: function(res) {
-                    let html = '<div class="custom-select-option" data-value="" data-id="" data-ch4="" data-approved="0" data-notes="">-- All SubCategories --</div>';
-                    if (res.subcategories && res.subcategories.length > 0) {
-                        html += res.subcategories.slice(0, 10).map(s => `
-                            <div class="custom-select-option" 
-                                 data-value="${s.name}" 
-                                 data-id="${s.id}" 
-                                 data-ch4="${s.ch4_code}" 
-                                 data-approved="${parseFloat(s.approved_amount).toFixed(2)}" 
-                                 data-notes="${s.notes || ''}">
-                                 ${s.name}
-                            </div>
-                        `).join('');
-                    } else if (query) {
-                        html += '<div class="p-2 text-muted small">No subcategories found</div>';
-                    }
-                    dropdown.html(html);
+            // Fetch ranges dynamically for search selection
+            $.ajax({
+                url: `/get-subcategory-ranges/${id}/`,
+                success(res) {
+                    renderModalRanges(res.ranges || []);
+                    $('#editBudgetModal').modal('show');
                 },
-                error: function(xhr, status, err) {
-                    if (status !== 'abort') {
-                        dropdown.html('<div class="p-2 text-muted small text-danger">Error loading subcategories</div>');
+                error() {
+                    renderModalRanges([]);
+                    $('#editBudgetModal').modal('show');
+                }
+            });
+        } else {
+            $('#budgetSubcatSelect').val('');
+        }
+        $(this).closest('.custom-select-dropdown').addClass('d-none');
+    });
+
+    $(document).on('blur', '#budgetSubcatSelect', function () {
+        const el = this;
+        setTimeout(() => $(el).closest('.custom-select-container').find('.custom-select-dropdown').addClass('d-none'), 200);
+    });
+    $(document).on('click', function (e) {
+        if (!$(e.target).closest('.custom-select-container').length)
+            $('.custom-select-dropdown').addClass('d-none');
+    });
+
+    $('.edit-budget-btn').on('click', function () {
+        $('#modalSubcatId').val($(this).data('id'));
+        $('#modalSubcatName').val($(this).data('name'));
+        $('#modalApprovedAmount').val($(this).data('approved'));
+        $('#modalApprovedQuantity').val($(this).data('quantity') || 0);
+        $('#modalNotes').val($(this).data('notes') || '');
+        
+        const ranges = $(this).data('ranges') || [];
+        renderModalRanges(ranges);
+        $('#editBudgetModal').modal('show');
+    });
+
+    $('#buyerSelect, #seasonSelect').on('change', function () {
+        const buyer = $('#buyerSelect').val() || '';
+        const season = $('#seasonSelect').val() || '';
+        window.location.href = `?buyer=${buyer}&season=${season}`;
+    });
+
+    // Enter key triggers save on all inline inputs
+    $(document).on('keydown', '.inline-sales-from, .inline-sales-to, .inline-buying-from, .inline-buying-to, .inline-range-approved-amount, .inline-range-approved-qty, .inline-approved-amount, .inline-approved-quantity', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            $(this).trigger('change');
+            $(this).blur();
+        }
+    });
+
+    // AJAX Inline Sales Price Range Updates
+    $(document).on('change', '.inline-sales-from, .inline-sales-to', function () {
+        const row = $(this).closest('.inline-sales-range-row');
+        const rangeId = row.data('range-id');
+        const salesFrom = row.find('.inline-sales-from').val() || 0;
+        const salesTo = row.find('.inline-sales-to').val() || 0;
+        const inputs = row.find('input');
+        
+        inputs.css('border-color', '#fbbf24');
+        
+        $.ajax({
+            url: '/update-price-range/',
+            method: 'POST',
+            contentType: 'application/json',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            data: JSON.stringify({
+                range_id: rangeId,
+                sales_from: parseFloat(salesFrom),
+                sales_to: parseFloat(salesTo)
+            }),
+            success(res) {
+                if (res.success) {
+                    inputs.css('border-color', '#10b981');
+                } else {
+                    inputs.css('border-color', '#ef4444');
+                }
+            },
+            error() {
+                inputs.css('border-color', '#ef4444');
+            }
+        });
+    });
+
+    // AJAX Inline Buying Price Range Updates
+    $(document).on('change', '.inline-buying-from, .inline-buying-to', function () {
+        const row = $(this).closest('.inline-buying-range-row');
+        const rangeId = row.data('range-id');
+        const buyingFrom = row.find('.inline-buying-from').val() || 0;
+        const buyingTo = row.find('.inline-buying-to').val() || 0;
+        const inputs = row.find('input');
+        
+        inputs.css('border-color', '#fbbf24');
+        
+        $.ajax({
+            url: '/update-price-range/',
+            method: 'POST',
+            contentType: 'application/json',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            data: JSON.stringify({
+                range_id: rangeId,
+                buying_from: parseFloat(buyingFrom),
+                buying_to: parseFloat(buyingTo)
+            }),
+            success(res) {
+                if (res.success) {
+                    inputs.css('border-color', '#10b981');
+                    setTimeout(() => {
+                        inputs.css('border-color', '#0ea5e9'); // Revert to premium blue
+                    }, 800);
+                } else {
+                    inputs.css('border-color', '#ef4444');
+                }
+            },
+            error() {
+                inputs.css('border-color', '#ef4444');
+            }
+        });
+    });
+
+    // AJAX Add Price Range
+    $(document).on('click', '.add-range-btn', function () {
+        const btn = $(this);
+        const subcatId = btn.data('subcategory-id');
+        const row = btn.closest('tr');
+        
+        $.ajax({
+            url: '/add-price-range/',
+            method: 'POST',
+            contentType: 'application/json',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            data: JSON.stringify({
+                subcategory_id: subcatId
+            }),
+            success(res) {
+                if (res.success) {
+                    const salesContainer = row.find('.sales-range-container');
+                    const buyingContainer = row.find('.buying-range-container');
+                    
+                    const salesHtml = `
+                        <div class="d-flex gap-1 align-items-center inline-sales-range-row" data-range-id="${res.range_id}">
+                            <input type="number" class="form-control form-control-sm text-center inline-sales-from fw-semibold" value="${Math.round(res.sales_from)}" style="width: 70px; border-color: #10b981; color: #047857; font-size: 0.78rem; padding: 0.2rem 0.4rem; border-radius: 4px !important;" placeholder="0">
+                            <span class="text-muted small" style="font-size: 0.72rem;">to</span>
+                            <input type="number" class="form-control form-control-sm text-center inline-sales-to fw-semibold" value="${Math.round(res.sales_to)}" style="width: 70px; border-color: #10b981; color: #047857; font-size: 0.78rem; padding: 0.2rem 0.4rem; border-radius: 4px !important;" placeholder="0">
+                        </div>
+                    `;
+                    const buyingHtml = `
+                        <div class="d-flex gap-1 align-items-center inline-buying-range-row" data-range-id="${res.range_id}">
+                            <input type="number" class="form-control form-control-sm text-center inline-buying-from fw-semibold" value="0" style="width: 70px; border-color: #0ea5e9; color: #0369a1; font-size: 0.78rem; padding: 0.2rem 0.4rem; border-radius: 4px !important;" placeholder="0">
+                            <span class="text-muted small" style="font-size: 0.72rem;">to</span>
+                            <input type="number" class="form-control form-control-sm text-center inline-buying-to fw-semibold" value="0" style="width: 70px; border-color: #0ea5e9; color: #0369a1; font-size: 0.78rem; padding: 0.2rem 0.4rem; border-radius: 4px !important;" placeholder="0">
+                        </div>
+                    `;
+                    
+                    // Remove empty placeholders if any
+                    salesContainer.contents().filter(function() { return this.nodeType === 3 && this.textContent.trim() === '—'; }).remove();
+                    salesContainer.find('.text-muted').filter(function() { return $(this).text().trim() === '—'; }).remove();
+                    buyingContainer.contents().filter(function() { return this.nodeType === 3 && this.textContent.trim() === '—'; }).remove();
+                    buyingContainer.find('.text-muted').filter(function() { return $(this).text().trim() === '—'; }).remove();
+
+                    salesContainer.find('.add-range-wrapper').before(salesHtml);
+                    buyingContainer.find('.add-range-wrapper').before(buyingHtml);
+
+                    // Add corresponding budget and qty inputs
+                    const amountContainer = row.find('.approved-amount-container');
+                    const qtyContainer = row.find('.approved-qty-container');
+                    const spacer = '<div style="height: 22px;"></div>';
+                    amountContainer.find('div[style*="height"]').before(
+                        `<input type="number" step="0.01" class="form-control form-control-sm text-end inline-range-approved-amount fw-bold" data-range-id="${res.range_id}" value="0.00" style="width: 100px; border-color: #cbd5e1; color: #1e293b; font-size: 0.78rem; padding: 0.2rem 0.4rem; border-radius: 4px !important;" placeholder="0.00">`
+                    );
+                    qtyContainer.find('div[style*="height"]').before(
+                        `<input type="number" step="1" class="form-control form-control-sm text-end inline-range-approved-qty fw-bold" data-range-id="${res.range_id}" value="0" style="width: 80px; border-color: #cbd5e1; color: #1e293b; font-size: 0.78rem; padding: 0.2rem 0.4rem; border-radius: 4px !important;" placeholder="0">`
+                    );
+                }
+            }
+        });
+    });
+
+    // AJAX Delete Price Range from Modal
+    $(document).on('click', '.delete-range-btn', function () {
+        const btn = $(this);
+        const rangeId = btn.data('range-id');
+        
+        if (confirm("Are you sure you want to delete this price range?")) {
+            $.ajax({
+                url: '/delete-price-range/',
+                method: 'POST',
+                contentType: 'application/json',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                data: JSON.stringify({
+                    range_id: rangeId
+                }),
+                success(res) {
+                    if (res.success) {
+                        // Remove from modal lists
+                        $(`#modalSalesRangesList div[data-range-id="${rangeId}"]`).remove();
+                        $(`#modalBuyingRangesList div[data-range-id="${rangeId}"]`).remove();
+
+                        // Remove from inline table lists (price range rows + budget/qty inputs)
+                        $(`tr div[data-range-id="${rangeId}"]`).remove();
+                        $(`tr input[data-range-id="${rangeId}"]`).remove();
                     }
                 }
             });
         }
+    });
 
-        // Show dropdown on click/focus
-        $(document).on('focus click', '#budgetSubcatSelect', function() {
-            fetchSubcategories(this, $(this).val());
-        });
+    // AJAX per-range Approved Amount and Quantity updates
+    $(document).on('change', '.inline-range-approved-amount, .inline-range-approved-qty', function () {
+        const input = $(this);
+        const rangeId = input.data('range-id');
+        const isAmount = input.hasClass('inline-range-approved-amount');
+        const val = isAmount ? parseFloat(input.val() || 0) : parseInt(input.val() || 0);
+        const payload = { range_id: rangeId };
+        if (isAmount) payload.approved_amount = val;
+        else payload.approved_quantity = val;
 
-        // Filter dropdown options when typing in the input
-        $(document).on('input', '#budgetSubcatSelect', function() {
-            fetchSubcategories(this, $(this).val());
-        });
-
-        // Select an option
-        $(document).on('mousedown', '.custom-select-container .custom-select-option', function(e) {
-            let val = $(this).data('value'); // name
-            let id = $(this).data('id');
-            let approved = $(this).data('approved') || '0.00';
-            let notes = $(this).data('notes') || '';
-            let txt = $(this).text().trim();
-            
-            let container = $(this).closest('.custom-select-container');
-            let input = container.find('.custom-select-input');
-            
-            if (val === '') {
-                input.val('');
-                input.data('selected-value', '');
-            } else {
-                input.val(txt);
-                input.data('selected-value', val);
-                
-                // Instantly open the edit budget modal for this selected subcategory!
-                $('#modalSubcatId').val(id);
-                $('#modalSubcatName').val(val);
-                $('#modalApprovedAmount').val(approved);
-                $('#modalNotes').val(notes);
-                $('#editBudgetModal').modal('show');
-            }
-            
-            container.find('.custom-select-dropdown').addClass('d-none');
-        });
-
-        // Close dropdown when input loses focus
-        $(document).on('blur', '#budgetSubcatSelect', function() {
-            let self = this;
-            setTimeout(function() {
-                $(self).closest('.custom-select-container').find('.custom-select-dropdown').addClass('d-none');
-            }, 200);
-        });
-
-        // Close dropdown if clicking outside
-        $(document).on('click', function(e) {
-            if (!$(e.target).closest('.custom-select-container').length) {
-                $('.custom-select-dropdown').addClass('d-none');
-            }
-        });
-
-        // Edit Button Trigger
-        $('.edit-budget-btn').on('click', function() {
-            let id = $(this).data('id');
-            let name = $(this).data('name');
-            let approved = $(this).data('approved');
-            let notes = $(this).data('notes');
-
-            $('#modalSubcatId').val(id);
-            $('#modalSubcatName').val(name);
-            $('#modalApprovedAmount').val(approved);
-            $('#modalNotes').val(notes);
-
-            $('#editBudgetModal').modal('show');
+        input.css('border-color', '#fbbf24');
+        $.ajax({
+            url: '/update-price-range/',
+            method: 'POST',
+            contentType: 'application/json',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            data: JSON.stringify(payload),
+            success(res) {
+                input.css('border-color', res.success ? '#10b981' : '#ef4444');
+                if (res.success) setTimeout(() => input.css('border-color', '#cbd5e1'), 800);
+            },
+            error() { input.css('border-color', '#ef4444'); }
         });
     });
+
+    // AJAX Inline Approved Budget and Quantity Set updates
+    $(document).on('change', '.inline-approved-amount, .inline-approved-quantity', function () {
+        const input = $(this);
+        const subcatId = input.data('subcategory-id');
+        const isAmount = input.hasClass('inline-approved-amount');
+        const fieldName = isAmount ? 'approved_amount' : 'approved_quantity';
+        const rawValue = input.val() || 0;
+        const val = isAmount ? parseFloat(rawValue) : parseInt(rawValue);
+
+        // Highlight input yellow during save
+        input.css('border-color', '#fbbf24');
+
+        $.ajax({
+            url: '/update-budget-field/',
+            method: 'POST',
+            contentType: 'application/json',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            data: JSON.stringify({
+                subcategory_id: subcatId,
+                field: fieldName,
+                value: val
+            }),
+            success(res) {
+                if (res.success) {
+                    // Flash green on success
+                    input.css('border-color', '#10b981');
+                    setTimeout(() => {
+                        input.css('border-color', '#cbd5e1'); // Revert to standard gray border
+                    }, 800);
+
+                    // Update corresponding button's data attribute so modal matches
+                    const row = input.closest('tr');
+                    const editBtn = row.find('.edit-budget-btn');
+                    if (isAmount) {
+                        editBtn.data('approved', val.toFixed(2));
+                        
+                        // Recalculate Balance column dynamically!
+                        const spentCell = row.find('.spent-amount-cell');
+                        const balanceCell = row.find('.balance-amount-cell');
+                        const spentVal = parseFloat(spentCell.data('spent') || 0);
+                        const balanceVal = val - spentVal;
+                        
+                        balanceCell.data('balance', balanceVal);
+                        balanceCell.text('₹' + balanceVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                        
+                        if (balanceVal >= 0) {
+                            balanceCell.removeClass('text-danger').addClass('text-success');
+                        } else {
+                            balanceCell.removeClass('text-success').addClass('text-danger');
+                        }
+                    } else {
+                        editBtn.data('quantity', val);
+                    }
+                } else {
+                    input.css('border-color', '#ef4444'); // Red on error
+                }
+            },
+            error() {
+                input.css('border-color', '#ef4444'); // Red on error
+            }
+        });
+    });
+});
 </script>
 {% endblock %}

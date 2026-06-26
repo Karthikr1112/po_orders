@@ -17,9 +17,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
-from .forms import AdminBudgetForm
 from .models import (
-    AdminBudget,
     Buyer,
     PurchaseOrder,
     PurchaseOrderItem,
@@ -27,9 +25,81 @@ from .models import (
     SubCategory,
     SubCategorySize,
     Vendor,
+    SubCategoryPriceRange,
 )
 
 logger = logging.getLogger("po_sheet")
+
+
+# ---------------------------------------------------------------------------
+# Batch query helpers  (eliminate N+1 patterns throughout the module)
+# ---------------------------------------------------------------------------
+
+def _batch_pr_aggregates(subcat_ids):
+    """
+    Return a dict: {subcategory_id: {'total_amt': Decimal, 'total_qty': int}}
+    for all price ranges belonging to the given subcategory IDs.
+    Single query regardless of how many IDs are passed.
+    """
+    if not subcat_ids:
+        return {}
+    rows = (
+        SubCategoryPriceRange.objects
+        .filter(subcategory_id__in=subcat_ids)
+        .values("subcategory_id")
+        .annotate(total_amt=Sum("approved_amount"), total_qty=Sum("approved_quantity"))
+    )
+    return {r["subcategory_id"]: r for r in rows}
+
+
+def _batch_placed_maps(subcat_ids, extra_filter=None):
+    """
+    Return (placed_amt_map, placed_qty_map) dicts keyed by subcategory_id,
+    scoped to submitted (non-draft) POs.  Optional extra_filter is a Q object
+    applied to the PurchaseOrderItem queryset (e.g. buyer / season).
+    Single pair of queries regardless of how many IDs are passed.
+    """
+    if not subcat_ids:
+        return {}, {}
+    qs = PurchaseOrderItem.objects.filter(
+        purchase_order__is_draft=False, subcategory_id__in=subcat_ids
+    )
+    if extra_filter:
+        qs = qs.filter(extra_filter)
+    placed_amt = {
+        r["subcategory_id"]: r["total"]
+        for r in qs.values("subcategory_id").annotate(total=Sum("tot_amt"))
+    }
+    placed_qty = {
+        r["subcategory_id"]: r["total"]
+        for r in qs.values("subcategory_id").annotate(total=Sum("tot_qty"))
+    }
+    return placed_amt, placed_qty
+
+
+# ---------------------------------------------------------------------------
+# Local Price Range helper
+# ---------------------------------------------------------------------------
+
+def get_or_sync_subcategory_price_ranges(subcategory):
+    """
+    Fetch price ranges for the subcategory from the local database.
+    If none exist, create a default 0.00 to 0.00 range so that the user
+    can enter/edit buying price ranges.
+    """
+    ranges = list(SubCategoryPriceRange.objects.filter(subcategory=subcategory).order_by('sales_from_range'))
+    if not ranges:
+        obj, created = SubCategoryPriceRange.objects.get_or_create(
+            subcategory=subcategory,
+            sales_from_range=Decimal("0.00"),
+            sales_to_range=Decimal("0.00"),
+            defaults={
+                "buying_from_range": Decimal("0.00"),
+                "buying_to_range": Decimal("0.00"),
+            }
+        )
+        ranges = [obj]
+    return ranges
 
 
 # ---------------------------------------------------------------------------
@@ -149,11 +219,13 @@ def get_or_create_mssql_vendor(vendor_code):
 def get_subcategory_remaining_budget(subcategory, exclude_po_id=None, include_draft_po_id=None):
     if not subcategory:
         return Decimal("0")
-    try:
-        budget = subcategory.budget
-    except AdminBudget.DoesNotExist:
-        return Decimal("0")
-    if not budget:
+
+    # Total approved = sum of all price range approved_amounts for this subcategory
+    agg = SubCategoryPriceRange.objects.filter(subcategory=subcategory).aggregate(
+        total=Sum("approved_amount")
+    )
+    approved_total = agg["total"] or Decimal("0")
+    if not approved_total:
         return Decimal("0")
 
     qs = PurchaseOrderItem.objects.filter(
@@ -176,7 +248,7 @@ def get_subcategory_remaining_budget(subcategory, exclude_po_id=None, include_dr
         )
         spent += draft_spent
 
-    return budget.approved_amount - spent
+    return approved_total - spent
 
 
 # ---------------------------------------------------------------------------
@@ -273,23 +345,23 @@ def po_sheet(request):
         grand_total=totals["grand_total"],
     )
 
-    # Budget availability per subcategory for items already on the draft
-    placed_map = {
-        row["subcategory_id"]: row["total"]
-        for row in PurchaseOrderItem.objects.filter(purchase_order__is_draft=False)
-        .values("subcategory_id")
-        .annotate(total=Sum("tot_amt"))
-    }
+    # Budget availability per subcategory — 2 queries total, no N+1
+    subcat_ids = [item.subcategory_id for item in po_items]
+    pr_agg_map = _batch_pr_aggregates(subcat_ids)
+    placed_map, placed_qty_map = _batch_placed_maps(subcat_ids)
+
     for item in po_items:
         sc = item.subcategory
-        try:
-            approved = sc.budget.approved_amount
-            sc.has_budget = True
-        except AdminBudget.DoesNotExist:
-            approved = Decimal("0")
-            sc.has_budget = False
+        pr = pr_agg_map.get(sc.id, {})
+        approved = pr.get("total_amt") or Decimal("0")
+        approved_qty = pr.get("total_qty") or 0
+        sc.has_budget = approved > 0
         placed = placed_map.get(sc.id, Decimal("0"))
         sc.available_budget = float(max(Decimal("0"), approved - Decimal(str(placed))))
+        sc.approved_amount_val = float(approved)
+        sc.approved_quantity_val = approved_qty
+        sc.spent_amount_val = float(placed)
+        sc.spent_qty_val = int(placed_qty_map.get(sc.id, 0))
 
     context = {
         "po": po,
@@ -374,80 +446,134 @@ def vendor_list(request):
 @login_required
 def search_subcategory(request):
     query = (request.GET.get("q") or "").strip()
-    results = []
-    conn = None
+    buyer_id = request.GET.get("buyer", "").strip()
+
     try:
-        conn = _get_mssql_conn()
-        cursor = conn.cursor()
-        if query:
-            term = f"%{query}%"
-            cursor.execute(
-                "SELECT DISTINCT TOP 100 SubCategory, CH4"
-                " FROM [dbo].[MCH_View]"
-                " WHERE SubCategory IS NOT NULL AND (SubCategory LIKE ? OR CH4 LIKE ?)",
-                (term, term),
-            )
-        else:
-            cursor.execute(
-                "SELECT DISTINCT TOP 50 SubCategory, CH4"
-                " FROM [dbo].[MCH_View] WHERE SubCategory IS NOT NULL"
-            )
-        rows = cursor.fetchall()
-    except Exception:
-        logger.exception("MSSQL error in search_subcategory")
-        rows = []
-    finally:
-        if conn:
-            conn.close()
-
-    if not rows:
-        return JsonResponse({"subcategories": []})
-
-    # One query for all local subcategories in the result set
-    names = [r[0] for r in rows]
-    local_map = {
-        sc.name: sc
-        for sc in SubCategory.objects.filter(name__in=names).select_related("budget")
-    }
-    placed_map = {
-        row["subcategory_id"]: row["total"]
-        for row in PurchaseOrderItem.objects.filter(purchase_order__is_draft=False)
-        .values("subcategory_id")
-        .annotate(total=Sum("tot_amt"))
-    }
-
-    for subcat_name, ch4 in rows:
-        sc = local_map.get(subcat_name)
-        has_budget = False
-        approved_amount = Decimal("0")
-        available_budget = 0.0
-        notes = ""
-        subcat_id = subcat_name  # fallback when not yet in MySQL
-
-        if sc:
-            subcat_id = sc.id
+        if buyer_id:
             try:
-                approved_amount = sc.budget.approved_amount
-                notes = sc.budget.notes or ""
-                has_budget = True
-            except AdminBudget.DoesNotExist:
-                pass
-            placed = placed_map.get(sc.id, Decimal("0"))
-            available_budget = float(max(Decimal("0"), approved_amount - Decimal(str(placed))))
+                buyer_id_int = int(buyer_id)
+            except ValueError:
+                buyer_id_int = None
 
-        results.append({
-            "id": subcat_id,
-            "name": subcat_name,
-            "category": "MSSQL Category",
-            "ch4_code": ch4 or "",
-            "available_budget": available_budget,
-            "has_budget": has_budget,
-            "approved_amount": float(approved_amount),
-            "notes": notes,
-            "unit_price": 0.0,
-        })
+            if buyer_id_int:
+                qs = SubCategory.objects.filter(buyers__id=buyer_id_int)
+                if query:
+                    qs = qs.filter(name__icontains=query)
 
-    return JsonResponse({"subcategories": results})
+                subcat_list = list(qs[:50])
+                subcat_ids = [sc.id for sc in subcat_list]
+
+                # 2 queries for all price-range + placed data (no N+1)
+                pr_agg_map = _batch_pr_aggregates(subcat_ids)
+                placed_map, placed_qty_map = _batch_placed_maps(subcat_ids)
+
+                results = []
+                for sc in subcat_list:
+                    pr = pr_agg_map.get(sc.id, {})
+                    approved_amount = pr.get("total_amt") or Decimal("0")
+                    approved_quantity = pr.get("total_qty") or 0
+                    has_budget = approved_amount > 0
+                    placed = placed_map.get(sc.id, Decimal("0"))
+                    available_budget = float(
+                        max(Decimal("0"), approved_amount - Decimal(str(placed)))
+                    )
+                    results.append({
+                        "id": sc.id,
+                        "name": sc.name,
+                        "category": "Local Category",
+                        "ch4_code": sc.ch4_code or "",
+                        "available_budget": available_budget,
+                        "has_budget": has_budget,
+                        "approved_amount": float(approved_amount),
+                        "approved_quantity": approved_quantity,
+                        "spent_amount": float(placed),
+                        "spent_quantity": int(placed_qty_map.get(sc.id, 0)),
+                        "unit_price": 0.0,
+                    })
+                return JsonResponse({"subcategories": results})
+
+        # --- MSSQL branch ---
+        rows = []
+        conn = None
+        try:
+            conn = _get_mssql_conn()
+            cursor = conn.cursor()
+            if query:
+                term = f"%{query}%"
+                cursor.execute(
+                    "SELECT DISTINCT TOP 100 SubCategory, CH4"
+                    " FROM [dbo].[MCH_View]"
+                    " WHERE SubCategory IS NOT NULL AND (SubCategory LIKE ? OR CH4 LIKE ?)",
+                    (term, term),
+                )
+            else:
+                cursor.execute(
+                    "SELECT DISTINCT TOP 50 SubCategory, CH4"
+                    " FROM [dbo].[MCH_View] WHERE SubCategory IS NOT NULL"
+                )
+            rows = cursor.fetchall()
+        except Exception:
+            logger.exception("MSSQL error in search_subcategory")
+            rows = []
+        finally:
+            if conn:
+                conn.close()
+
+        if not rows:
+            return JsonResponse({"subcategories": []})
+
+        # Single query for all local subcategories in the MSSQL result set
+        names = [r[0] for r in rows]
+        local_map = {
+            sc.name: sc
+            for sc in SubCategory.objects.filter(name__in=names)
+        }
+
+        # Batch price-range + placed data for local subcategories only (no N+1)
+        local_ids = [sc.id for sc in local_map.values()]
+        pr_agg_map = _batch_pr_aggregates(local_ids)
+        placed_map, placed_qty_map = _batch_placed_maps(local_ids)
+
+        results = []
+        for subcat_name, ch4 in rows:
+            sc = local_map.get(subcat_name)
+            has_budget = False
+            approved_amount = Decimal("0")
+            approved_quantity = 0
+            available_budget = 0.0
+            spent_placed = Decimal("0")
+            subcat_id = subcat_name  # fallback when not yet in MySQL
+
+            if sc:
+                subcat_id = sc.id
+                pr = pr_agg_map.get(sc.id, {})
+                approved_amount = pr.get("total_amt") or Decimal("0")
+                approved_quantity = pr.get("total_qty") or 0
+                has_budget = approved_amount > 0
+                spent_placed = placed_map.get(sc.id, Decimal("0"))
+                available_budget = float(
+                    max(Decimal("0"), approved_amount - Decimal(str(spent_placed)))
+                )
+
+            results.append({
+                "id": subcat_id,
+                "name": subcat_name,
+                "category": "MSSQL Category",
+                "ch4_code": ch4 or "",
+                "available_budget": available_budget,
+                "has_budget": has_budget,
+                "approved_amount": float(approved_amount),
+                "approved_quantity": approved_quantity,
+                "spent_amount": float(spent_placed),
+                "spent_quantity": int(placed_qty_map.get(sc.id, 0)) if sc else 0,
+                "unit_price": 0.0,
+            })
+
+        return JsonResponse({"subcategories": results})
+
+    except Exception:
+        logger.exception("search_subcategory error")
+        return JsonResponse({"subcategories": [], "error": "Server error"}, status=500)
 
 
 # ---------------------------------------------------------------------------
@@ -746,38 +872,103 @@ def save_po(request):
 
             items_data = data.get("items", [])
 
-            # --- Budget validation before touching the DB ---
+            # --- Validate Admin Budget / Qty Limits per Price Range ---
+            base_items = PurchaseOrderItem.objects.filter(purchase_order__is_draft=False)
+            if po.buyer:
+                base_items = base_items.filter(purchase_order__buyer=po.buyer)
+            if po.season:
+                base_items = base_items.filter(purchase_order__season=po.season)
+
+
+
+            proposed_totals = {}
             for item in items_data:
                 subcat_id = item.get("subcategory_id")
                 if not subcat_id:
                     continue
                 try:
-                    subcat = SubCategory.objects.select_related("budget").get(id=subcat_id)
+                    subcat = SubCategory.objects.get(id=subcat_id)
                 except (SubCategory.DoesNotExist, ValueError, TypeError):
-                    continue
-
-                try:
-                    budget = subcat.budget
-                except AdminBudget.DoesNotExist:
-                    continue  # No budget set — allow
+                    subcat, _ = SubCategory.objects.get_or_create(name=str(subcat_id))
 
                 unit_price = Decimal(str(item.get("unit_price", 0)))
-                order_qty = int(item.get("order_qty", 0))
-                disc = Decimal(str(item.get("discount_percentage", 0)))
-                item_amt = unit_price * order_qty * (Decimal("1") - disc / Decimal("100"))
+                qty = int(item.get("order_qty", 0))
+                discount_percentage = Decimal(str(item.get("discount_percentage", 0)))
+                discount_factor = Decimal("1") - (discount_percentage / Decimal("100"))
+                tot_amt = unit_price * Decimal(qty) * discount_factor
 
-                remaining = get_subcategory_remaining_budget(subcat, exclude_po_id=po.id)
-                if item_amt > remaining:
-                    over = item_amt - remaining
-                    return JsonResponse({
-                        "success": False,
-                        "error": (
-                            f"Budget exceeded for '{subcat.name}': "
-                            f"required ₹{item_amt:.2f}, "
-                            f"remaining ₹{remaining:.2f} "
-                            f"(over by ₹{over:.2f})"
-                        ),
-                    })
+                price_ranges = list(subcat.price_ranges.all())
+                if not price_ranges:
+                    price_ranges = get_or_sync_subcategory_price_ranges(subcat)
+
+                matched_range = None
+                for pr in price_ranges:
+                    if pr.buying_from_range <= unit_price <= pr.buying_to_range:
+                        matched_range = pr
+                        break
+
+                if not matched_range:
+                    raise ValueError(
+                        f"No price range defined for '{subcat.name}' that covers the unit price ₹{unit_price:,.2f}."
+                    )
+
+                approved_amt = matched_range.approved_amount or Decimal("0.00")
+                approved_qty = matched_range.approved_quantity or 0
+
+                if approved_amt == Decimal("0.00") and approved_qty == 0:
+                    raise ValueError(
+                        f"Saving not allowed. '{subcat.name}' in range [₹{matched_range.buying_from_range:,.2f} - ₹{matched_range.buying_to_range:,.2f}] "
+                        f"does not have an approved budget or quantity set by the admin."
+                    )
+
+                key = (subcat.id, matched_range.id)
+                if key not in proposed_totals:
+                    proposed_totals[key] = {
+                        "qty": 0,
+                        "amount": Decimal("0.00"),
+                        "subcategory_name": subcat.name,
+                        "range_str": f"₹{matched_range.buying_from_range} - ₹{matched_range.buying_to_range}",
+                        "approved_amount": approved_amt,
+                        "approved_quantity": approved_qty,
+                        "range_obj": matched_range,
+                    }
+                proposed_totals[key]["qty"] += qty
+                proposed_totals[key]["amount"] += tot_amt
+
+            for (subcat_id, range_id), info in proposed_totals.items():
+                pr = info["range_obj"]
+                subcat_name = info["subcategory_name"]
+                range_str = info["range_str"]
+
+                submitted_qs = base_items.filter(
+                    subcategory_id=subcat_id,
+                    unit_price__gte=pr.buying_from_range,
+                    unit_price__lte=pr.buying_to_range,
+                )
+
+                agg_spent = submitted_qs.aggregate(
+                    spent_amt=Sum("tot_amt"),
+                    spent_qty=Sum("tot_qty")
+                )
+                spent_amt = agg_spent["spent_amt"] or Decimal("0.00")
+                spent_qty = agg_spent["spent_qty"] or 0
+
+                approved_amt = info["approved_amount"]
+                approved_qty = info["approved_quantity"]
+                proposed_amt = info["amount"]
+                proposed_qty = info["qty"]
+
+
+
+                if approved_amt > Decimal("0.00"):
+                    total_amt = spent_amt + proposed_amt
+                    if total_amt > approved_amt:
+                        raise ValueError(f"Budget limit reached for '{subcat_name}' in range [{range_str}]. Approved: ₹{approved_amt:,.2f}, Spent so far: ₹{spent_amt:,.2f}, This PO: ₹{proposed_amt:,.2f}. Exceeds budget by ₹{total_amt - approved_amt:,.2f}.")
+
+                if approved_qty > 0:
+                    total_qty = spent_qty + proposed_qty
+                    if total_qty > approved_qty:
+                        raise ValueError(f"Quantity limit reached for '{subcat_name}' in range [{range_str}]. Approved: {approved_qty}, Placed so far: {spent_qty}, This PO: {proposed_qty}. Exceeds quantity limit by {total_qty - approved_qty}.")
 
             # --- Replace all items in one shot ---
             # Disconnect signals during bulk-insert so on_commit isn't triggered
@@ -842,6 +1033,8 @@ def save_po(request):
                     "grand_total": float(agg["grand_total"] or 0),
                 },
             })
+    except ValueError as e:
+        return JsonResponse({"success": False, "error": str(e)})
     except Exception:
         logger.exception("save_po error")
         return JsonResponse({"success": False, "error": "Server error — PO not saved"})
@@ -861,26 +1054,6 @@ def submit_po(request):
     if not po.items.exists():
         messages.error(request, "Please add at least one item before submitting")
         return redirect("po_sheet")
-
-    items = po.items.select_related("subcategory__budget").all()
-    for item in items:
-        subcat = item.subcategory
-        try:
-            _ = subcat.budget
-        except AdminBudget.DoesNotExist:
-            continue
-        remaining = get_subcategory_remaining_budget(subcat, exclude_po_id=po.id)
-        if item.tot_amt > remaining:
-            over = item.tot_amt - remaining
-            msg = (
-                f"'{subcat.name}': required ₹{item.tot_amt:.2f}, "
-                f"remaining ₹{remaining:.2f} (over by ₹{over:.2f})"
-            )
-            if request.user.is_staff:
-                messages.warning(request, f"Budget exceeded — {msg}")
-            else:
-                messages.error(request, f"Cannot submit — budget exceeded for {msg}")
-                return redirect("po_sheet")
 
     PurchaseOrder.objects.filter(pk=po.pk).update(is_draft=False)
     messages.success(request, f"Purchase Order {po.po_number} submitted successfully")
@@ -940,11 +1113,17 @@ def preview_po(request):
         return render(request, "po_sheet/print_po.html", {"error": "No PO found"})
 
     po_items = po.items.select_related("subcategory").all()
-    subtotal = sum(item.tot_qty * item.unit_price for item in po_items)
+    num_items = len(po_items)
+    extra_rows_count = max(0, 12 - num_items)
+    extra_rows = range(num_items + 1, num_items + extra_rows_count + 1)
+    
+    agg = po.items.aggregate(subtotal=Sum(F("tot_qty") * F("unit_price")))
+    subtotal = agg["subtotal"] or Decimal("0")
     now = datetime.now()
     return render(request, "po_sheet/print_po.html", {
         "po": po,
         "po_items": po_items,
+        "extra_rows": extra_rows,
         "subtotal": subtotal,
         "today": now.strftime("%d/%m/%Y"),
         "print_time": now.strftime("%d/%m/%Y, %I:%M:%S %p"),
@@ -1097,78 +1276,151 @@ def admin_budget(request):
         messages.error(request, "Only admin can manage budgets")
         return redirect("po_sheet")
 
+    # Buyer filter
+    buyer_id = request.GET.get("buyer", "").strip() or request.POST.get("buyer", "").strip()
+    selected_buyer = None
+    all_buyers = Buyer.objects.order_by("name")
+    if buyer_id:
+        try:
+            selected_buyer = Buyer.objects.get(id=buyer_id)
+        except (Buyer.DoesNotExist, ValueError):
+            selected_buyer = None
+
+    # Season filter
+    season_id = request.GET.get("season", "").strip() or request.POST.get("season", "").strip()
+    selected_season = None
+    all_seasons = Season.objects.order_by("name")
+    if season_id:
+        try:
+            selected_season = Season.objects.get(id=season_id)
+        except (Season.DoesNotExist, ValueError):
+            selected_season = None
+
     if request.method == "POST":
-        subcategory_id = request.POST.get("subcategory_id", "").strip()
-        approved_amount_str = request.POST.get("approved_amount", "").strip()
-        notes = request.POST.get("notes", "")
+        # All budget edits are handled via AJAX (/update-price-range/).
+        # POST just redirects back, preserving filters.
+        url = "/admin-budget/"
+        params = []
+        if buyer_id:
+            params.append(f"buyer={buyer_id}")
+        if season_id:
+            params.append(f"season={season_id}")
+        if params:
+            url += "?" + "&".join(params)
+        return redirect(url)
 
-        if subcategory_id and approved_amount_str:
-            try:
-                approved_amount = Decimal(approved_amount_str)
-                if approved_amount < 0:
-                    raise ValueError("Amount cannot be negative")
+    # Base PO items (submitted only)
+    base_items = PurchaseOrderItem.objects.filter(purchase_order__is_draft=False)
+    if selected_buyer:
+        base_items = base_items.filter(purchase_order__buyer=selected_buyer)
+    if selected_season:
+        base_items = base_items.filter(purchase_order__season=selected_season.name)
 
-                try:
-                    subcat = SubCategory.objects.get(id=int(subcategory_id))
-                except (SubCategory.DoesNotExist, ValueError):
-                    # Name-based lookup (from MSSQL search)
-                    ch4_code = ""
-                    conn = None
-                    try:
-                        conn = _get_mssql_conn()
-                        cursor = conn.cursor()
-                        cursor.execute(
-                            "SELECT TOP 1 CH4 FROM [dbo].[MCH_View] WHERE SubCategory = ?",
-                            (subcategory_id,),
-                        )
-                        row = cursor.fetchone()
-                        if row and row[0]:
-                            ch4_code = row[0]
-                    except Exception:
-                        logger.warning("MSSQL lookup failed in admin_budget for %s", subcategory_id)
-                    finally:
-                        if conn:
-                            conn.close()
-                    subcat, _ = SubCategory.objects.get_or_create(
-                        name=subcategory_id,
-                        defaults={"ch4_code": ch4_code},
-                    )
+    # We want to group PO items by subcategory
+    po_items_by_subcat = {}
+    for item in base_items.select_related("purchase_order", "subcategory"):
+        po_items_by_subcat.setdefault(item.subcategory_id, []).append(item)
 
-                AdminBudget.objects.update_or_create(
-                    subcategory=subcat,
-                    defaults={
-                        "approved_amount": approved_amount,
-                        "approved_by": request.user,
-                        "notes": notes,
-                    },
-                )
-                messages.success(
-                    request,
-                    f"Budget ₹{approved_amount:,.2f} updated for '{subcat.name}'.",
-                )
-            except Exception as e:
-                messages.error(request, f"Error updating budget: {e}")
-        return redirect("admin_budget")
-
+    # Spent per subcategory (respects buyer and season filters)
     placed_map = {
         row["subcategory_id"]: row["total"]
-        for row in PurchaseOrderItem.objects.filter(purchase_order__is_draft=False)
-        .values("subcategory_id")
-        .annotate(total=Sum("tot_amt"))
+        for row in base_items.values("subcategory_id").annotate(total=Sum("tot_amt"))
     }
 
+    # Budget rows — show all subcategories for selected buyer, only when buyer is selected
+    if selected_buyer:
+        subcat_qs = list(
+            SubCategory.objects
+            .filter(buyers=selected_buyer)
+            .prefetch_related("buyers", "price_ranges")
+            .order_by("name")
+        )
+    else:
+        subcat_qs = []
+
+    # Ensure every subcategory has at least one price range (batch: only one extra
+    # query per subcategory that is genuinely missing ranges, usually zero).
+    subcat_ids_all = [sc.id for sc in subcat_qs]
+    existing_range_ids = set(
+        SubCategoryPriceRange.objects
+        .filter(subcategory_id__in=subcat_ids_all)
+        .values_list("subcategory_id", flat=True)
+        .distinct()
+    )
+    for sc in subcat_qs:
+        if sc.id not in existing_range_ids:
+            get_or_sync_subcategory_price_ranges(sc)
+
+    # Refresh prefetch so newly created ranges are visible
+    if subcat_ids_all:
+        from django.db.models import Prefetch
+        pr_prefetch = SubCategoryPriceRange.objects.filter(
+            subcategory_id__in=subcat_ids_all
+        ).order_by("sales_from_range")
+        pr_by_sc = {}
+        for pr in pr_prefetch:
+            pr_by_sc.setdefault(pr.subcategory_id, []).append(pr)
+
     rows = []
-    for budget in AdminBudget.objects.select_related("subcategory").order_by("subcategory__name"):
-        sc = budget.subcategory
+    for sc in subcat_qs:
         spent = placed_map.get(sc.id, Decimal("0"))
+        buyer_names = [b.name for b in sc.buyers.all()]
+
+        price_ranges = pr_by_sc.get(sc.id, [])
+
+        # Match each item to a price range based on buying price
+        items = po_items_by_subcat.get(sc.id, [])
+        range_spent_amount = {}  # range_id -> Decimal
+        range_spent_qty = {}     # range_id -> int
+        
+        for item in items:
+            matched_range = None
+            for pr in price_ranges:
+                if pr.buying_from_range <= item.unit_price <= pr.buying_to_range:
+                    matched_range = pr
+                    break
+            if matched_range:
+                range_spent_amount[matched_range.id] = range_spent_amount.get(matched_range.id, Decimal("0.00")) + item.tot_amt
+                range_spent_qty[matched_range.id] = range_spent_qty.get(matched_range.id, 0) + item.tot_qty
+
+        for pr in price_ranges:
+            pr.spent_amount = range_spent_amount.get(pr.id, Decimal("0.00"))
+            pr.spent_quantity = range_spent_qty.get(pr.id, 0)
+            pr.balance = (pr.approved_amount or Decimal("0.00")) - pr.spent_amount
+
+        # Total approved = sum of price range budgets (single source of truth)
+        approved = sum((pr.approved_amount or Decimal("0.00")) for pr in price_ranges)
+        approved_qty = sum((pr.approved_quantity or 0) for pr in price_ranges)
+
+        # Serialize to JSON for data attributes in the template
+        ranges_list = []
+        for r in price_ranges:
+            ranges_list.append({
+                "id": r.id,
+                "sales_from": float(r.sales_from_range),
+                "sales_to": float(r.sales_to_range),
+                "buying_from": float(r.buying_from_range),
+                "buying_to": float(r.buying_to_range),
+                "approved_amount": float(r.approved_amount),
+                "approved_quantity": r.approved_quantity,
+                "spent_amount": float(r.spent_amount),
+                "spent_quantity": r.spent_quantity,
+                "balance": float(r.balance),
+            })
+        import json
+        price_ranges_json = json.dumps(ranges_list)
+
         rows.append({
             "id": sc.id,
             "name": sc.name,
             "ch4_code": sc.ch4_code or "—",
-            "approved_amount": budget.approved_amount,
+            "approved_amount": approved,
+            "approved_quantity": approved_qty,
             "spent_amount": spent,
-            "balance_amount": budget.approved_amount - spent,
-            "notes": budget.notes or "",
+            "balance_amount": approved - spent,
+            "buyers": buyer_names,
+            "price_ranges": price_ranges,
+            "price_ranges_json": price_ranges_json,
         })
 
     paginator = Paginator(rows, 30)
@@ -1177,6 +1429,334 @@ def admin_budget(request):
         "subcategories": page_obj.object_list,
         "page_obj": page_obj,
         "total_budgeted_count": paginator.count,
+        "all_buyers": all_buyers,
+        "selected_buyer": selected_buyer,
+        "buyer_id": buyer_id,
+        "all_seasons": all_seasons,
+        "selected_season": selected_season,
+        "season_id": season_id,
+    })
+
+
+@login_required
+def budget_spent_details(request):
+    if not request.user.is_staff:
+        messages.error(request, "Only admin can view budget details")
+        return redirect("po_sheet")
+
+    # Filters
+    buyer_id = request.GET.get("buyer", "").strip()
+    selected_buyer = None
+    all_buyers = Buyer.objects.order_by("name")
+    if buyer_id:
+        try:
+            selected_buyer = Buyer.objects.get(id=buyer_id)
+        except (Buyer.DoesNotExist, ValueError):
+            selected_buyer = None
+
+    season_id = request.GET.get("season", "").strip()
+    selected_season = None
+    all_seasons = Season.objects.order_by("name")
+    if season_id:
+        try:
+            selected_season = Season.objects.get(id=season_id)
+        except (Season.DoesNotExist, ValueError):
+            selected_season = None
+
+    if not selected_buyer:
+        return render(request, "po_sheet/budget_spent_details.html", {
+            "rows": [],
+            "all_buyers": all_buyers,
+            "selected_buyer": None,
+            "buyer_id": "",
+            "all_seasons": all_seasons,
+            "season_id": season_id,
+            "grand_total_approved_amount": Decimal("0.00"),
+            "grand_total_approved_quantity": 0,
+            "grand_total_spent_amount": Decimal("0.00"),
+            "grand_total_spent_quantity": 0,
+            "grand_total_balance": Decimal("0.00"),
+        })
+
+    # Fetch PO items for non-draft POs
+    po_items_qs = PurchaseOrderItem.objects.filter(purchase_order__is_draft=False).select_related("purchase_order", "subcategory")
+    po_items_qs = po_items_qs.filter(purchase_order__buyer=selected_buyer)
+    if selected_season:
+        po_items_qs = po_items_qs.filter(purchase_order__season=selected_season.name)
+
+    # We want to group PO items by subcategory
+    po_items_by_subcat = {}
+    for item in po_items_qs:
+        po_items_by_subcat.setdefault(item.subcategory_id, []).append(item)
+
+    subcat_qs = SubCategory.objects.filter(buyers=selected_buyer).prefetch_related("price_ranges").order_by("name")
+
+    rows = []
+    grand_total_approved_amount = Decimal("0.00")
+    grand_total_approved_qty = 0
+    grand_total_spent_amount = Decimal("0.00")
+    grand_total_spent_qty = 0
+    grand_total_balance = Decimal("0.00")
+
+    for sc in subcat_qs:
+        price_ranges = list(sc.price_ranges.all())  # uses prefetch cache
+        if not price_ranges:
+            price_ranges = get_or_sync_subcategory_price_ranges(sc)
+            
+        items = po_items_by_subcat.get(sc.id, [])
+
+        # Match each item to a price range based on buying price
+        range_spent_amount = {}  # range_id -> Decimal
+        range_spent_qty = {}     # range_id -> int
+        
+        unclassified_amount = Decimal("0.00")
+        unclassified_qty = 0
+
+        for item in items:
+            # We match to a price range where buying_from_range <= item.unit_price <= buying_to_range
+            matched_range = None
+            for pr in price_ranges:
+                if pr.buying_from_range <= item.unit_price <= pr.buying_to_range:
+                    matched_range = pr
+                    break
+            
+            if matched_range:
+                range_spent_amount[matched_range.id] = range_spent_amount.get(matched_range.id, Decimal("0.00")) + item.tot_amt
+                range_spent_qty[matched_range.id] = range_spent_qty.get(matched_range.id, 0) + item.tot_qty
+            else:
+                unclassified_amount += item.tot_amt
+                unclassified_qty += item.tot_qty
+
+        # Construct ranges list
+        sc_ranges_data = []
+        sc_total_approved = Decimal("0.00")
+        sc_total_approved_qty = 0
+        sc_total_spent = Decimal("0.00")
+        sc_total_spent_qty = 0
+
+        for pr in price_ranges:
+            approved_amt = pr.approved_amount or Decimal("0.00")
+            approved_q = pr.approved_quantity or 0
+            
+            spent_amt = range_spent_amount.get(pr.id, Decimal("0.00"))
+            spent_q = range_spent_qty.get(pr.id, 0)
+            
+            bal = approved_amt - spent_amt
+            
+            sc_total_approved += approved_amt
+            sc_total_approved_qty += approved_q
+            sc_total_spent += spent_amt
+            sc_total_spent_qty += spent_q
+
+            sc_ranges_data.append({
+                "sales_from": pr.sales_from_range,
+                "sales_to": pr.sales_to_range,
+                "buying_from": pr.buying_from_range,
+                "buying_to": pr.buying_to_range,
+                "approved_amount": approved_amt,
+                "approved_quantity": approved_q,
+                "spent_amount": spent_amt,
+                "spent_quantity": spent_q,
+                "balance": bal,
+            })
+
+        if unclassified_amount > 0 or unclassified_qty > 0:
+            sc_total_spent += unclassified_amount
+            sc_total_spent_qty += unclassified_qty
+            sc_ranges_data.append({
+                "is_unclassified": True,
+                "approved_amount": Decimal("0.00"),
+                "approved_quantity": 0,
+                "spent_amount": unclassified_amount,
+                "spent_quantity": unclassified_qty,
+                "balance": -unclassified_amount,
+            })
+
+        sc_balance = sc_total_approved - sc_total_spent
+        
+        grand_total_approved_amount += sc_total_approved
+        grand_total_approved_qty += sc_total_approved_qty
+        grand_total_spent_amount += sc_total_spent
+        grand_total_spent_qty += sc_total_spent_qty
+        grand_total_balance += sc_balance
+
+        rows.append({
+            "id": sc.id,
+            "name": sc.name,
+            "ranges": sc_ranges_data,
+            "total_approved_amount": sc_total_approved,
+            "total_approved_quantity": sc_total_approved_qty,
+            "total_spent_amount": sc_total_spent,
+            "total_spent_quantity": sc_total_spent_qty,
+            "balance": sc_balance,
+        })
+
+    return render(request, "po_sheet/budget_spent_details.html", {
+        "rows": rows,
+        "all_buyers": all_buyers,
+        "selected_buyer": selected_buyer,
+        "buyer_id": buyer_id,
+        "all_seasons": all_seasons,
+        "selected_season": selected_season,
+        "season_id": season_id,
+        "grand_total_approved_amount": grand_total_approved_amount,
+        "grand_total_approved_quantity": grand_total_approved_qty,
+        "grand_total_spent_amount": grand_total_spent_amount,
+        "grand_total_spent_quantity": grand_total_spent_qty,
+        "grand_total_balance": grand_total_balance,
+    })
+
+
+@login_required
+@require_POST
+def update_price_range(request):
+    try:
+        data = json.loads(request.body)
+        range_id = data.get("range_id")
+
+        updates = {}
+        if "sales_from" in data:
+            updates["sales_from_range"] = Decimal(str(data["sales_from"]))
+        if "sales_to" in data:
+            updates["sales_to_range"] = Decimal(str(data["sales_to"]))
+        if "buying_from" in data:
+            updates["buying_from_range"] = Decimal(str(data["buying_from"]))
+        if "buying_to" in data:
+            updates["buying_to_range"] = Decimal(str(data["buying_to"]))
+        if "approved_amount" in data:
+            updates["approved_amount"] = Decimal(str(data["approved_amount"]))
+        if "approved_quantity" in data:
+            updates["approved_quantity"] = int(data["approved_quantity"])
+
+        if updates:
+            SubCategoryPriceRange.objects.filter(id=range_id).update(**updates)
+
+        return JsonResponse({"success": True})
+    except Exception as e:
+        logger.error(f"Error in update_price_range API: {e}")
+        return JsonResponse({"success": False, "error": str(e)})
+
+
+@login_required
+@require_POST
+def add_price_range(request):
+    try:
+        data = json.loads(request.body)
+        subcategory_id = data.get("subcategory_id")
+        subcat = SubCategory.objects.get(id=subcategory_id)
+        
+        # Find maximum sales_to_range for this subcategory to avoid duplicate key constraint
+        max_range = SubCategoryPriceRange.objects.filter(subcategory=subcat).order_by("-sales_to_range").first()
+        if max_range:
+            new_sales_from = max_range.sales_to_range + Decimal("1.00")
+            new_sales_to = new_sales_from
+        else:
+            new_sales_from = Decimal("0.00")
+            new_sales_to = Decimal("0.00")
+            
+        new_range = SubCategoryPriceRange.objects.create(
+            subcategory=subcat,
+            sales_from_range=new_sales_from,
+            sales_to_range=new_sales_to,
+            buying_from_range=Decimal("0.00"),
+            buying_to_range=Decimal("0.00")
+        )
+
+        return JsonResponse({
+            "success": True,
+            "range_id": new_range.id,
+            "sales_from": float(new_sales_from),
+            "sales_to": float(new_sales_to),
+            "buying_from": 0,
+            "buying_to": 0,
+            "approved_amount": 0,
+            "approved_quantity": 0,
+        })
+    except Exception as e:
+        logger.error(f"Error in add_price_range API: {e}")
+        return JsonResponse({"success": False, "error": str(e)})
+
+
+@login_required
+@require_POST
+def delete_price_range(request):
+    try:
+        data = json.loads(request.body)
+        range_id = data.get("range_id")
+        SubCategoryPriceRange.objects.filter(id=range_id).delete()
+        return JsonResponse({"success": True})
+    except Exception as e:
+        logger.error(f"Error in delete_price_range API: {e}")
+        return JsonResponse({"success": False, "error": str(e)})
+
+
+
+
+@login_required
+def get_subcategory_ranges(request, subcategory_id):
+    try:
+        sc = SubCategory.objects.get(id=subcategory_id)
+    except (SubCategory.DoesNotExist, ValueError):
+        sc = SubCategory.objects.filter(name=subcategory_id).first()
+    if not sc:
+        return JsonResponse({"success": True, "ranges": []})
+
+    price_ranges = get_or_sync_subcategory_price_ranges(sc)
+
+    # Fetch ALL submitted items for this subcategory in ONE query, then
+    # classify in-memory — avoids N per-range DB queries.
+    all_items = list(
+        PurchaseOrderItem.objects.filter(
+            subcategory=sc, purchase_order__is_draft=False
+        ).values("unit_price", "tot_amt", "tot_qty")
+    )
+
+    total_spent_amount = sum(float(i["tot_amt"]) for i in all_items)
+    total_spent_quantity = sum(int(i["tot_qty"]) for i in all_items)
+
+    total_ranges = len(price_ranges)
+
+    # Build per-range accumulators in Python — O(items × ranges), negligible
+    range_amt = {r.id: Decimal("0") for r in price_ranges}
+    range_qty = {r.id: 0 for r in price_ranges}
+
+    for item in all_items:
+        unit_price = item["unit_price"]
+        for r in price_ranges:
+            buying_not_configured = (
+                r.buying_from_range == Decimal("0") and r.buying_to_range == Decimal("0")
+            )
+            if buying_not_configured:
+                continue
+            if total_ranges == 1:
+                range_amt[r.id] += item["tot_amt"]
+                range_qty[r.id] += item["tot_qty"]
+                break
+            if r.buying_from_range <= unit_price <= r.buying_to_range:
+                range_amt[r.id] += item["tot_amt"]
+                range_qty[r.id] += item["tot_qty"]
+                break
+
+    ranges_list = [
+        {
+            "id": r.id,
+            "sales_from": float(r.sales_from_range),
+            "sales_to": float(r.sales_to_range),
+            "buying_from": float(r.buying_from_range),
+            "buying_to": float(r.buying_to_range),
+            "approved_amount": float(r.approved_amount),
+            "approved_quantity": r.approved_quantity,
+            "spent_amount": float(range_amt[r.id]),
+            "spent_quantity": int(range_qty[r.id]),
+        }
+        for r in price_ranges
+    ]
+
+    return JsonResponse({
+        "success": True,
+        "ranges": ranges_list,
+        "total_spent_amount": total_spent_amount,
+        "total_spent_quantity": total_spent_quantity,
     })
 
 
@@ -1336,3 +1916,220 @@ def delete_user(request, user_id):
         user_to_delete.delete()
         messages.success(request, f"User '{username}' deleted")
     return redirect("manage_users")
+
+
+# ---------------------------------------------------------------------------
+# Excel Upload Views
+# ---------------------------------------------------------------------------
+
+@login_required
+def upload_excel(request):
+    if not request.user.is_staff:
+        messages.error(request, "Only admin can upload data")
+        return redirect("po_sheet")
+
+    context = {"results": None, "upload_type": None}
+
+    if request.method == "POST":
+        upload_type = request.POST.get("upload_type", "")
+        excel_file = request.FILES.get("excel_file")
+
+        if not excel_file:
+            messages.error(request, "No file uploaded.")
+            return render(request, "po_sheet/upload_excel.html", context)
+
+        if not excel_file.name.endswith((".xlsx", ".xls")):
+            messages.error(request, "Please upload a valid Excel file (.xlsx or .xls).")
+            return render(request, "po_sheet/upload_excel.html", context)
+
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(excel_file, data_only=True)
+            ws = wb.active
+
+            if upload_type == "price_range":
+                context["results"] = _process_price_range_upload(ws, request.user)
+                context["upload_type"] = "price_range"
+            elif upload_type == "buyer":
+                resync = request.POST.get("resync") == "1"
+                context["results"] = _process_buyer_upload(ws, resync=resync)
+                context["upload_type"] = "buyer"
+            else:
+                messages.error(request, "Invalid upload type.")
+
+        except Exception as e:
+            logger.error(f"Excel upload error: {e}")
+            messages.error(request, f"Error processing file: {e}")
+
+    return render(request, "po_sheet/upload_excel.html", context)
+
+
+def _process_price_range_upload(ws, user):
+    """
+    Expected columns (row 1 = header):
+    SubCategory Name | SubCategory Code | Buyer | Sales From | Sales To | Buying From | Buying To | Approved Budget | Approved Qty
+    """
+    results = {"created": 0, "updated": 0, "skipped": 0, "errors": [], "rows": 0}
+
+    headers = [str(c.value).strip().lower() if c.value else "" for c in next(ws.iter_rows(min_row=1, max_row=1))]
+
+    def col(row, name_variants):
+        for variant in name_variants:
+            for i, h in enumerate(headers):
+                if variant in h:
+                    v = row[i].value
+                    return v
+        return None
+
+    for row in ws.iter_rows(min_row=2, values_only=False):
+        if all(c.value is None for c in row):
+            continue
+        results["rows"] += 1
+        row_num = row[0].row
+        try:
+            subcat_name = str(col(row, ["subcategory name", "subcategory", "sub category", "name"])).strip() if col(row, ["subcategory name", "subcategory", "sub category", "name"]) else ""
+            subcat_code_val = str(col(row, ["subcategory code", "subcat code", "code", "ch4"])).strip() if col(row, ["subcategory code", "subcat code", "code", "ch4"]) else ""
+            buyer_name = str(col(row, ["buyer"])).strip() if col(row, ["buyer"]) else ""
+
+            sales_from = col(row, ["sales from", "sale from"])
+            sales_to   = col(row, ["sales to",   "sale to"])
+            buying_from = col(row, ["buying from", "buy from"])
+            buying_to   = col(row, ["buying to",   "buy to"])
+            approved_budget = col(row, ["approved budget", "budget", "approved amount"])
+            approved_qty    = col(row, ["approved qty", "quantity", "qty"])
+
+            if not subcat_name or subcat_name.lower() == "none":
+                results["errors"].append(f"Row {row_num}: Missing subcategory name")
+                continue
+
+            # Find or create subcategory
+            sc = None
+            if subcat_code_val and subcat_code_val.lower() != "none":
+                sc = SubCategory.objects.filter(ch4_code=subcat_code_val).first()
+            if not sc:
+                sc, created = SubCategory.objects.get_or_create(
+                    name=subcat_name,
+                    defaults={"ch4_code": subcat_code_val or None}
+                )
+                if not created and subcat_code_val and subcat_code_val.lower() != "none" and not sc.ch4_code:
+                    sc.ch4_code = subcat_code_val
+                    sc.save(update_fields=["ch4_code"])
+
+            # Link buyer if provided
+            if buyer_name and buyer_name.lower() != "none":
+                buyer_obj, _ = Buyer.objects.get_or_create(name=buyer_name)
+                sc.buyers.add(buyer_obj)
+
+            # Build field values
+            sf = Decimal(str(sales_from or 0))
+            st = Decimal(str(sales_to or 0))
+            bf = Decimal(str(buying_from or 0))
+            bt = Decimal(str(buying_to or 0))
+            ab = Decimal(str(approved_budget or 0))
+            aq = int(approved_qty or 0)
+
+            # Upsert price range
+            existing = SubCategoryPriceRange.objects.filter(
+                subcategory=sc,
+                sales_from_range=sf,
+                sales_to_range=st,
+            ).first()
+
+            sc_code_for_range = subcat_code_val if subcat_code_val and subcat_code_val.lower() != "none" else None
+
+            if existing:
+                changed = (
+                    existing.buying_from_range != bf or
+                    existing.buying_to_range   != bt or
+                    existing.approved_amount   != ab or
+                    existing.approved_quantity != aq or
+                    (sc_code_for_range and existing.subcat_code != sc_code_for_range)
+                )
+                if changed:
+                    existing.buying_from_range = bf
+                    existing.buying_to_range   = bt
+                    existing.approved_amount   = ab
+                    existing.approved_quantity = aq
+                    if sc_code_for_range:
+                        existing.subcat_code = sc_code_for_range
+                    existing.save()
+                    results["updated"] += 1
+                else:
+                    results["skipped"] += 1
+            else:
+                SubCategoryPriceRange.objects.create(
+                    subcategory=sc,
+                    sales_from_range=sf,
+                    sales_to_range=st,
+                    buying_from_range=bf,
+                    buying_to_range=bt,
+                    approved_amount=ab,
+                    approved_quantity=aq,
+                    subcat_code=sc_code_for_range,
+                )
+                results["created"] += 1
+
+        except Exception as e:
+            results["errors"].append(f"Row {row_num}: {e}")
+
+    return results
+
+
+def _process_buyer_upload(ws, resync=False):
+    """
+    Expected columns: SubCategory | SubCateCode | PGR | TVM Buyer
+    Same format as buyer.xlsx.
+    resync=True clears all existing buyer links before importing.
+    """
+    results = {"created": 0, "updated": 0, "skipped": 0, "no_buyer": 0, "errors": [], "rows": 0}
+
+    if resync:
+        SubCategory.buyers.through.objects.all().delete()
+
+    seen = set()
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        if all(v is None for v in row):
+            continue
+        results["rows"] += 1
+        try:
+            subcat_name = str(row[0]).strip() if row[0] else ""
+            subcat_code = str(row[1]).strip() if len(row) > 1 and row[1] is not None else ""
+            raw_buyer   = row[3] if len(row) > 3 else None
+            buyer_name  = str(raw_buyer).strip() if raw_buyer and str(raw_buyer).strip() not in ("0", "") else ""
+
+            if not subcat_name:
+                results["errors"].append(f"Row {results['rows']+1}: Missing subcategory name")
+                continue
+
+            # Skip duplicate (subcat, buyer) pairs in same file
+            key = (subcat_name, buyer_name)
+            if key in seen:
+                results["skipped"] += 1
+                continue
+            seen.add(key)
+
+            # Always upsert the subcategory
+            sc, sc_created = SubCategory.objects.get_or_create(
+                name=subcat_name,
+                defaults={"ch4_code": subcat_code or None}
+            )
+            if not sc_created and subcat_code and sc.ch4_code != subcat_code:
+                sc.ch4_code = subcat_code
+                sc.save(update_fields=["ch4_code"])
+                results["updated"] += 1
+
+            # Link buyer only when a real name exists
+            if buyer_name:
+                buyer_obj, _ = Buyer.objects.get_or_create(name=buyer_name)
+                if not sc.buyers.filter(id=buyer_obj.id).exists():
+                    sc.buyers.add(buyer_obj)
+                    results["created"] += 1
+                else:
+                    results["skipped"] += 1
+            else:
+                results["no_buyer"] += 1
+
+        except Exception as e:
+            results["errors"].append(f"Row {results['rows']+1}: {e}")
+
+    return results

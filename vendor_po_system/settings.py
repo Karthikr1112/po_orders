@@ -17,7 +17,18 @@ SECRET_KEY = os.environ.get(
 
 DEBUG = os.environ.get("DJANGO_DEBUG", "True") == "True"
 
+
+
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost 127.0.0.1").split()
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://jeyarama.com",
+    "https://*.jeyarama.com",
+]
+
+
+
+
 
 # ---------------------------------------------------------------------------
 # Applications
@@ -141,8 +152,9 @@ STATIC_ROOT = BASE_DIR / "staticfiles"  # collectstatic target for production
 # Auth redirects
 # ---------------------------------------------------------------------------
 LOGIN_URL = "/login/"
-LOGIN_REDIRECT_URL = "/"
+LOGIN_REDIRECT_URL = ""
 LOGOUT_REDIRECT_URL = "/login/"
+
 
 # ---------------------------------------------------------------------------
 # Session security
@@ -166,52 +178,9 @@ if not DEBUG:
     X_FRAME_OPTIONS = "DENY"
 
 # ---------------------------------------------------------------------------
-# Logging  — console in dev, file in production
+# Logging (Removed custom file logging config)
 # ---------------------------------------------------------------------------
-LOG_LEVEL = os.environ.get("DJANGO_LOG_LEVEL", "DEBUG" if DEBUG else "WARNING")
-LOG_DIR = BASE_DIR / "logs"
-LOG_DIR.mkdir(exist_ok=True)
 
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {
-            "format": "{asctime} {levelname} {name} {message}",
-            "style": "{",
-        },
-    },
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "verbose",
-        },
-        "file": {
-            "class": "logging.handlers.RotatingFileHandler",
-            "filename": LOG_DIR / "django.log",
-            "maxBytes": 10 * 1024 * 1024,  # 10 MB
-            "backupCount": 5,
-            "formatter": "verbose",
-        },
-    },
-    "root": {
-        "handlers": ["console", "file"],
-        "level": LOG_LEVEL,
-    },
-    "loggers": {
-        "po_sheet": {
-            "handlers": ["console", "file"],
-            "level": LOG_LEVEL,
-            "propagate": False,
-        },
-        "django.db.backends": {
-            # Set to DEBUG locally to see queries; keep WARNING in production
-            "handlers": ["console"],
-            "level": "WARNING",
-            "propagate": False,
-        },
-    },
-}
 
 # ---------------------------------------------------------------------------
 # Default primary key

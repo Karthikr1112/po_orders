@@ -3,7 +3,6 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
 
 from .models import (
-    AdminBudget,
     SubCategorySize,
     PurchaseOrder,
     PurchaseOrderItem,
@@ -11,6 +10,7 @@ from .models import (
     Vendor,
     Buyer,
     Season,
+    SubCategoryPriceRange,
 )
 
 # Register Season
@@ -88,9 +88,13 @@ class PurchaseOrderAdmin(admin.ModelAdmin):
     readonly_fields = ("total_quantity", "grand_total", "created_at", "updated_at")
     inlines = [PurchaseOrderItemInline]
 
-@admin.register(AdminBudget)
-class AdminBudgetAdmin(admin.ModelAdmin):
-    list_display = ("subcategory", "approved_amount", "approved_by", "approved_at")
-    search_fields = ("subcategory__name",)
-    list_filter = ("approved_at", "approved_by")
-    readonly_fields = ("approved_at",)
+
+@admin.register(SubCategoryPriceRange)
+class SubCategoryPriceRangeAdmin(admin.ModelAdmin):
+    list_display = (
+        "subcategory", "sales_from_range", "sales_to_range",
+        "buying_from_range", "buying_to_range",
+        "approved_amount", "approved_quantity",
+    )
+    search_fields = ("subcategory__name", "subcategory__ch4_code")
+    list_filter = ("subcategory",)

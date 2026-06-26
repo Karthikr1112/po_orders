@@ -5,37 +5,51 @@
     <title>Print Purchase Order - {{ po.po_number }}</title>
     <style>
         @page {
-            size: A4;
-            margin: 15mm 15mm 15mm 15mm;
+            size: A4 portrait;
+            margin: 10mm 12mm 15mm 12mm; /* Tightened margins */
         }
         body {
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            color: #333;
+            color: #1e293b;
             margin: 0;
             padding: 0;
-            font-size: 11pt;
-            line-height: 1.4;
+            font-size: 9.5pt;
+            line-height: 1.35;
             position: relative;
         }
         .print-btn-container {
-            padding: 10px;
-            background: #f1f5f9;
-            border-bottom: 1px solid #cbd5e1;
+            padding: 12px 18px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
             text-align: right;
             margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 6px;
+        }
+        .print-tips-banner {
+            font-size: 8.5pt;
+            color: #15803d;
+            background-color: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            padding: 6px 10px;
+            border-radius: 4px;
+            text-align: left;
         }
         .btn-print {
-            background: #4f46e5;
+            background: #0f172a;
             color: white;
             border: none;
             padding: 8px 16px;
-            font-size: 14px;
-            font-weight: bold;
-            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 6px;
             cursor: pointer;
+            transition: background 0.15s ease;
         }
         .btn-print:hover {
-            background: #4338ca;
+            background: #334155;
         }
         
         /* Watermark styling for draft PO */
@@ -45,8 +59,8 @@
             position: fixed;
             top: 40%;
             left: 15%;
-            font-size: 110pt;
-            color: rgba(220, 38, 38, 0.08);
+            font-size: 100pt;
+            color: rgba(220, 38, 38, 0.04);
             transform: rotate(-35deg);
             font-weight: bold;
             z-index: -1000;
@@ -59,37 +73,38 @@
             max-width: 800px;
             margin: 0 auto;
             background: white;
-            padding: 10px;
+            padding: 0;
         }
         .header-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #333;
-            padding-bottom: 10px;
+            margin-bottom: 8px;
+            border-bottom: 2px solid #0f172a;
+            padding-bottom: 5px;
         }
         .company-name {
-            font-size: 20pt;
+            font-size: 16pt;
             font-weight: 800;
             letter-spacing: -0.5px;
-            color: #1e293b;
+            color: #0f172a;
             text-transform: uppercase;
         }
         .company-group {
-            font-size: 11pt;
+            font-size: 10pt;
             font-weight: 600;
-            color: #64748b;
+            color: #475569;
         }
         .header-meta {
             text-align: right;
-            font-size: 9pt;
-            color: #475569;
+            font-size: 8.5pt;
+            color: #334155;
+            line-height: 1.4;
         }
         .title-bar {
             text-align: center;
-            font-size: 15pt;
+            font-size: 12pt;
             font-weight: bold;
-            margin: 15px 0;
+            margin: 5px 0 10px 0;
             letter-spacing: 1px;
             text-transform: uppercase;
             color: #0f172a;
@@ -97,36 +112,40 @@
         .info-grid {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
         }
         .info-grid td {
             vertical-align: top;
             width: 50%;
-            padding: 5px 0;
+            padding: 0;
         }
         .info-card {
-            border: 1px solid #e2e8f0;
-            padding: 12px;
+            border: 1px solid #cbd5e1;
+            padding: 8px 10px;
             border-radius: 6px;
-            min-height: 110px;
-            background: #fafbfd;
+            min-height: 90px;
+            background: #f8fafc;
+            box-sizing: border-box;
         }
         .info-card-title {
-            font-size: 9pt;
+            font-size: 8pt;
             font-weight: bold;
-            color: #64748b;
+            color: #475569;
             text-transform: uppercase;
-            margin-bottom: 5px;
-            border-bottom: 1px solid #e2e8f0;
-            padding-bottom: 3px;
+            margin-bottom: 4px;
+            border-bottom: 1px solid #cbd5e1;
+            padding-bottom: 2px;
+            letter-spacing: 0.5px;
         }
         .info-card p {
-            margin: 4px 0;
-            font-size: 10pt;
+            margin: 3px 0;
+            font-size: 8.5pt;
+            color: #334155;
+            line-height: 1.35;
         }
         .po-meta-table {
             width: 100%;
-            font-size: 10pt;
+            font-size: 8.5pt;
         }
         .po-meta-table td {
             padding: 3px 0;
@@ -135,29 +154,32 @@
         .po-meta-label {
             font-weight: bold;
             color: #475569;
-            width: 100px;
+            width: 85px;
         }
 
         .items-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 15px;
-            margin-bottom: 20px;
+            margin-top: 5px;
+            margin-bottom: 10px;
         }
         .items-table th {
             background-color: #f1f5f9;
-            border: 1px solid #cbd5e1;
-            padding: 8px 6px;
-            font-size: 9pt;
+            border: 1px solid #94a3b8;
+            padding: 6px 4px;
+            font-size: 8pt;
             font-weight: bold;
             text-transform: uppercase;
-            color: #334155;
+            color: #1e293b;
             text-align: center;
+        }
+        .items-table tr {
+            height: 28px; /* Tighter row height */
         }
         .items-table td {
             border: 1px solid #cbd5e1;
-            padding: 8px 6px;
-            font-size: 9.5pt;
+            padding: 4px;
+            font-size: 8.5pt;
             text-align: center;
         }
         .items-table td.left {
@@ -165,11 +187,17 @@
             padding-left: 8px;
         }
         .items-table tr:nth-child(even) {
-            background-color: #fafbfd;
+            background-color: #f8fafc;
+        }
+        .items-table tr.empty-row {
+            background-color: transparent !important;
+        }
+        .items-table tr.empty-row td {
+            color: #94a3b8;
         }
         .totals-section {
             width: 100%;
-            margin-top: 15px;
+            margin-top: 8px;
             border-collapse: collapse;
         }
         .totals-section td {
@@ -177,33 +205,36 @@
         }
         .remarks-box {
             border: 1px solid #cbd5e1;
-            padding: 10px;
+            padding: 8px;
             border-radius: 4px;
-            font-size: 9.5pt;
-            min-height: 80px;
-            background: #fafbfd;
+            font-size: 8.5pt;
+            min-height: 50px;
+            background: #f8fafc;
+            box-sizing: border-box;
         }
         .remarks-title {
             font-weight: bold;
-            margin-bottom: 5px;
+            margin-bottom: 4px;
             color: #475569;
             text-transform: uppercase;
-            font-size: 8.5pt;
+            font-size: 7.5pt;
+            letter-spacing: 0.5px;
         }
         .totals-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 10.5pt;
+            font-size: 9pt;
         }
         .totals-table td {
-            padding: 6px 10px;
+            padding: 5px 8px;
             border: 1px solid #cbd5e1;
         }
         .totals-table .label {
             font-weight: bold;
             background: #f8fafc;
             text-align: right;
-            width: 140px;
+            width: 120px;
+            color: #475569;
         }
         .totals-table .val {
             text-align: right;
@@ -213,36 +244,38 @@
 
         /* Delivery schedules in Print */
         .schedule-box {
-            margin-top: 15px;
+            margin-top: 8px;
             border: 1px solid #cbd5e1;
-            padding: 10px;
+            padding: 8px;
             border-radius: 4px;
-            background: #fafbfd;
+            background: #f8fafc;
+            box-sizing: border-box;
         }
         .schedule-item {
-            font-size: 9pt;
-            padding: 4px 0;
+            font-size: 8pt;
+            padding: 3px 0;
             border-bottom: 1px dashed #e2e8f0;
+            color: #334155;
         }
         .schedule-item:last-child {
             border-bottom: none;
         }
 
         .signatures-container {
-            margin-top: 50px;
+            margin-top: 25px;
             width: 100%;
             border-collapse: collapse;
         }
         .signatures-container td {
             width: 33.33%;
             text-align: center;
-            font-size: 9.5pt;
-            padding-top: 50px;
+            font-size: 8.5pt;
+            padding-top: 30px;
             vertical-align: bottom;
         }
         .sig-line {
             width: 80%;
-            margin: 0 auto 8px auto;
+            margin: 0 auto 6px auto;
             border-top: 1px solid #94a3b8;
         }
         .sig-label {
@@ -252,24 +285,53 @@
 
         .footer-note {
             text-align: center;
-            font-size: 8pt;
+            font-size: 7pt;
             color: #94a3b8;
-            margin-top: 40px;
+            margin-top: 15px;
             border-top: 1px dashed #e2e8f0;
-            padding-top: 10px;
+            padding-top: 5px;
+        }
+
+        /* Custom Fixed Print Footer */
+        .print-footer {
+            display: none;
+        }
+
+        /* Prevent split across pages */
+        .info-card, .items-table, .totals-section, .signatures-container, .schedule-box, .remarks-box {
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
 
         @media print {
             .print-btn-container {
-                display: none;
+                display: none !important;
             }
             body {
                 margin: 0;
                 padding: 0;
+                color: #000;
             }
             .po-container {
                 max-width: 100%;
+                width: 100%;
                 padding: 0;
+            }
+            .print-footer {
+                display: flex !important;
+                justify-content: space-between;
+                position: fixed;
+                bottom: -10mm;
+                left: 0;
+                right: 0;
+                height: 10mm;
+                border-top: 1px solid #cbd5e1;
+                padding-top: 5px;
+                font-size: 7.5pt;
+                color: #64748b;
+            }
+            .page-number::after {
+                content: "Page " counter(page);
             }
         }
     </style>
@@ -277,6 +339,9 @@
 <body>
 
     <div class="print-btn-container">
+        <div class="print-tips-banner">
+            <strong>💡 Professional Printing Tip:</strong> Set layout to <strong>Portrait</strong>, check <strong>Background graphics</strong>, and uncheck <strong>Headers and footers</strong> in the print settings to use our custom A4 page numbers.
+        </div>
         <button class="btn-print" onclick="window.print()">Print Document</button>
     </div>
 
@@ -339,10 +404,6 @@
                                 <td><strong>{{ po.po_number }}</strong></td>
                             </tr>
                             <tr>
-                                <td class="po-meta-label">Status:</td>
-                                <td style="text-transform: capitalize;">{{ po.status }}</td>
-                            </tr>
-                            <tr>
                                 <td class="po-meta-label">Buyer:</td>
                                 <td>{{ po.buyer|default:"--" }}</td>
                             </tr>
@@ -360,14 +421,15 @@
         <table class="items-table">
             <thead>
                 <tr>
-                    <th style="width: 5%">S.No</th>
-                    <th style="width: 40%">SubCategory</th>
-                    <th style="width: 12%">Type</th>
-                    <th style="width: 10%">Ord Qty</th>
-                    <th style="width: 12%">Price(₹)</th>
-                    <th style="width: 8%">Disc%</th>
-                    <th style="width: 11%">Tot Qty</th>
-                    <th style="width: 12%">Tot Amt(₹)</th>
+                    <th style="width: 4%">S.No</th>
+                    <th style="width: 25%">SubCategory</th>
+                    <th style="width: 8%">Type</th>
+                    <th style="width: 18%">Sizes</th>
+                    <th style="width: 8%">Ord Qty</th>
+                    <th style="width: 10%">Price(₹)</th>
+                    <th style="width: 7%">Disc%</th>
+                    <th style="width: 9%">Tot Qty</th>
+                    <th style="width: 11%">Tot Amt(₹)</th>
                 </tr>
             </thead>
             <tbody>
@@ -376,15 +438,31 @@
                     <td>{{ forloop.counter }}</td>
                     <td class="left">{{ item.subcategory.name }}</td>
                     <td>{{ item.item_type }}</td>
+                    <td class="left" style="font-size: 8pt; color: #475569;">
+                        {% for sz, qty in item.size_allocations.items %}
+                            {% if not forloop.first %}, {% endif %}{{ sz }}-{{ qty }}
+                        {% empty %}
+                            —
+                        {% endfor %}
+                    </td>
                     <td>{{ item.order_qty }}</td>
                     <td>{{ item.unit_price }}</td>
                     <td>{{ item.discount_percentage }}%</td>
                     <td><strong>{{ item.tot_qty }}</strong></td>
                     <td><strong>{{ item.tot_amt }}</strong></td>
                 </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="8" style="color: #94a3b8; font-style: italic;">No items added to this purchase order</td>
+                {% endfor %}
+                {% for i in extra_rows %}
+                <tr class="empty-row">
+                    <td>{{ i }}</td>
+                    <td class="left">&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -451,6 +529,12 @@
         <div class="footer-note">
             This is a computer-generated document. No signature required for validation.
         </div>
+    </div>
+
+    <!-- Custom print footer for page numbers -->
+    <div class="print-footer">
+        <div>JEYARAMA STORES PVT. LTD. — Purchase Order {{ po.po_number }}</div>
+        <div class="page-number"></div>
     </div>
 
 </body>

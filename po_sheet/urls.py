@@ -13,6 +13,10 @@ urlpatterns = [
     path('update-po-item/<int:item_id>/', views.update_po_item, name='update_po_item'),
     path('delete-po-item/<int:item_id>/', views.delete_po_item, name='delete_po_item'),
     path('admin-budget/', views.admin_budget, name='admin_budget'),
+    path('budget-spent-details/', views.budget_spent_details, name='budget_spent_details'),
+    path('update-price-range/', views.update_price_range, name='update_price_range'),
+    path('add-price-range/', views.add_price_range, name='add_price_range'),
+    path('delete-price-range/', views.delete_price_range, name='delete_price_range'),
     path('submit-po/', views.submit_po, name='submit_po'),
     path('new-po/', views.new_po, name='new_po'),
     path('update-po-fields/', views.update_po_fields, name='update_po_fields'),
@@ -26,6 +30,7 @@ urlpatterns = [
     # Size Manager
     path('size-manager/', views.size_manager, name='size_manager'),
     path('get-subcategory-sizes/<str:subcategory_id>/', views.get_subcategory_sizes, name='get_subcategory_sizes'),
+    path('get-subcategory-ranges/<str:subcategory_id>/', views.get_subcategory_ranges, name='get_subcategory_ranges'),
     path('add-subcategory-sizes/', views.add_subcategory_sizes, name='add_subcategory_sizes'),
     path('remove-subcategory-size/', views.remove_subcategory_size, name='remove_subcategory_size'),
     
@@ -33,5 +38,6 @@ urlpatterns = [
     path('manage-users/', views.manage_users, name='manage_users'),
     path('delete-user/<int:user_id>/', views.delete_user, name='delete_user'),
     path('delete-po/<int:po_id>/', views.delete_po, name='delete_po'),
+    path('upload-excel/', views.upload_excel, name='upload_excel'),
 ]
 

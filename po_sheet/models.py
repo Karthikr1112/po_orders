@@ -22,6 +22,7 @@ class Vendor(models.Model):
         verbose_name_plural = "Vendors"
         indexes = [
             models.Index(fields=["vendor_name"], name="vendor_name_idx"),
+            models.Index(fields=["city"], name="vendor_city_idx"),
         ]
 
     def __str__(self):
@@ -29,6 +30,7 @@ class Vendor(models.Model):
 
 
 class Buyer(models.Model):
+    # unique=True implicitly creates a B-tree index on name
     name = models.CharField(max_length=100, unique=True)
 
     class Meta:
@@ -41,6 +43,7 @@ class Buyer(models.Model):
 
 
 class Season(models.Model):
+    # unique=True implicitly creates a B-tree index on name
     name = models.CharField(max_length=100, unique=True)
 
     class Meta:
@@ -53,8 +56,10 @@ class Season(models.Model):
 
 
 class SubCategory(models.Model):
+    # unique=True implicitly creates a B-tree index on name
     name = models.CharField(max_length=100, unique=True)
     ch4_code = models.CharField(max_length=50, blank=True, null=True, db_index=True)
+    buyers = models.ManyToManyField(Buyer, related_name="subcategories", blank=True)
 
     class Meta:
         verbose_name = "Sub-Category"
@@ -65,6 +70,7 @@ class SubCategory(models.Model):
 
 
 class SubCategorySize(models.Model):
+    # ForeignKey auto-creates a B-tree index on subcategory_id
     subcategory = models.ForeignKey(
         SubCategory, on_delete=models.CASCADE, related_name="sizes"
     )
@@ -87,16 +93,20 @@ class PurchaseOrder(models.Model):
         ("Sample", "Sample"),
     ]
 
+    # unique=True on po_number gives us the lookup index for free
     po_number = models.CharField(max_length=50, unique=True, db_index=True)
     po_date = models.DateField(blank=True, null=True)
     po_type = models.CharField(
         max_length=50, blank=True, null=True, choices=PO_TYPE_CHOICES
     )
-    season = models.CharField(max_length=100, blank=True, null=True)
+    # db_index on season enables the (season, is_draft) compound index below
+    season = models.CharField(max_length=100, blank=True, null=True, db_index=True)
+    # ForeignKey auto-creates index on buyer_id
     buyer = models.ForeignKey(
         Buyer, on_delete=models.SET_NULL, null=True, blank=True
     )
     agent = models.CharField(max_length=100, blank=True, null=True)
+    # ForeignKey auto-creates index on vendor_id
     vendor = models.ForeignKey(
         Vendor, on_delete=models.PROTECT, null=True, blank=True
     )
@@ -104,7 +114,7 @@ class PurchaseOrder(models.Model):
     delivery_schedules = models.JSONField(default=list, blank=True, null=True)
     notes = models.TextField(blank=True)
 
-    # Denormalized aggregates — kept in sync by signals
+    # Denormalised aggregates kept in sync by signals — avoids SUM on every page load
     total_quantity = models.IntegerField(default=0)
     grand_total = models.DecimalField(max_digits=14, decimal_places=2, default=0)
 
@@ -122,18 +132,22 @@ class PurchaseOrder(models.Model):
         verbose_name_plural = "Purchase Orders"
         ordering = ["-created_at"]
         indexes = [
-            # Listing submitted POs per user (most common query in all_records view)
+            # Draft PO lookup per user (most frequent: po_sheet view)
             models.Index(
                 fields=["created_by", "is_draft", "-created_at"],
                 name="po_user_draft_date_idx",
             ),
-            # Listing all submitted POs ordered by date (staff all_records view)
+            # All submitted POs ordered by date (staff all_records view)
             models.Index(
                 fields=["is_draft", "-created_at"],
                 name="po_draft_date_idx",
             ),
-            # Vendor-level PO lookup
+            # Vendor PO lookup
             models.Index(fields=["vendor", "is_draft"], name="po_vendor_draft_idx"),
+            # Budget calculation: base_items filtered by buyer + is_draft
+            models.Index(fields=["buyer", "is_draft"], name="po_buyer_draft_idx"),
+            # Budget calculation: base_items filtered by season + is_draft
+            models.Index(fields=["season", "is_draft"], name="po_season_draft_idx"),
         ]
 
     def __str__(self):
@@ -156,18 +170,18 @@ class PurchaseOrderItem(models.Model):
         ("Sample", "Sample"),
     ]
 
+    # ForeignKey auto-creates index on purchase_order_id
     purchase_order = models.ForeignKey(
         PurchaseOrder, on_delete=models.CASCADE, related_name="items"
     )
+    # db_index=True is redundant with the compound index below but explicit for FK joins
     subcategory = models.ForeignKey(
         SubCategory, on_delete=models.PROTECT, db_index=True
     )
     item_type = models.CharField(
         max_length=50, default="Fresh", choices=ITEM_TYPE_CHOICES
     )
-    order_qty = models.IntegerField(
-        default=0, validators=[MinValueValidator(0)]
-    )
+    order_qty = models.IntegerField(default=0, validators=[MinValueValidator(0)])
     unit_price = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -183,8 +197,7 @@ class PurchaseOrderItem(models.Model):
             MaxValueValidator(Decimal("100.00")),
         ],
     )
-    # tot_qty mirrors order_qty; kept as a stored field so reports can query it
-    # without joining — always set in save().
+    # tot_qty mirrors order_qty; stored so budget reports can aggregate without a join
     tot_qty = models.IntegerField(default=0)
     tot_amt = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     size_allocations = models.JSONField(default=dict, blank=True, null=True)
@@ -194,10 +207,15 @@ class PurchaseOrderItem(models.Model):
         verbose_name = "Purchase Order Item"
         verbose_name_plural = "Purchase Order Items"
         indexes = [
-            # Budget calculation: sum tot_amt by subcategory across non-draft POs
+            # Budget aggregate: GROUP BY subcategory WHERE purchase_order IN (...)
             models.Index(
                 fields=["subcategory", "purchase_order"],
                 name="poi_subcat_po_idx",
+            ),
+            # Reverse direction: items belonging to a PO, ordered by subcategory
+            models.Index(
+                fields=["purchase_order", "subcategory"],
+                name="poi_po_subcat_idx",
             ),
         ]
 
@@ -213,28 +231,37 @@ class PurchaseOrderItem(models.Model):
         super().save(*args, **kwargs)
 
 
-class AdminBudget(models.Model):
-    subcategory = models.OneToOneField(
-        SubCategory, on_delete=models.CASCADE, related_name="budget"
+class SubCategoryPriceRange(models.Model):
+    # ForeignKey auto-creates index on subcategory_id.
+    # The unique_together below creates a compound index on
+    # (subcategory_id, sales_from_range, sales_to_range) which also
+    # serves as a covering prefix for filter(subcategory=sc) queries.
+    subcategory = models.ForeignKey(
+        SubCategory, on_delete=models.CASCADE, related_name="price_ranges"
+    )
+    sales_from_range = models.DecimalField(max_digits=12, decimal_places=2)
+    sales_to_range = models.DecimalField(max_digits=12, decimal_places=2)
+    buying_from_range = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal("0.00")
+    )
+    buying_to_range = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal("0.00")
     )
     approved_amount = models.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal("0.00"))],
+        max_digits=14, decimal_places=2, default=Decimal("0.00")
     )
-    approved_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name="approved_budgets",
-    )
-    approved_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    notes = models.TextField(blank=True)
+    approved_quantity = models.PositiveIntegerField(default=0)
+    subcat_code = models.CharField(max_length=50, blank=True, null=True, db_index=True)
 
     class Meta:
-        verbose_name = "Admin Budget"
-        verbose_name_plural = "Admin Budgets"
+        verbose_name = "SubCategory Price Range"
+        verbose_name_plural = "SubCategory Price Ranges"
+        # Creates compound index (subcategory_id, sales_from_range, sales_to_range)
+        unique_together = [("subcategory", "sales_from_range", "sales_to_range")]
 
     def __str__(self):
-        return f"Budget — {self.subcategory.name}"
+        return (
+            f"{self.subcategory.name} | "
+            f"Sales: {self.sales_from_range}–{self.sales_to_range} | "
+            f"Buying: {self.buying_from_range}–{self.buying_to_range}"
+        )

@@ -415,19 +415,48 @@
         <div class="luxury-card-header py-2" style="font-size: 0.85rem; background: #f8fafc;">
             <span><i class="bi bi-sliders me-2 text-primary"></i>OTB CONTROL — <span id="otbActiveSubcatName" class="fw-bold text-indigo text-uppercase">NO SUBCATEGORY SELECTED</span></span>
         </div>
-        <div class="luxury-card-body py-3">
-            <div class="row text-center">
-                <div class="col-md-4 border-end">
-                    <span class="text-muted small fw-bold d-block text-uppercase" style="font-size: 0.75rem;">Approved Budget (Amount)</span>
-                    <h4 class="fw-bold mb-0 mt-1" id="otbAllocatedQty">—</h4>
+        <div class="luxury-card-body py-2">
+            <div class="row">
+                <!-- AMOUNT COLUMN -->
+                <div class="col-md-6 border-end">
+                    <div class="row text-center">
+                        <div class="col-12 mb-1">
+                            <span class="badge bg-light text-secondary border" style="font-size: 0.68rem; letter-spacing: 0.04em;">AMOUNT (₹)</span>
+                        </div>
+                        <div class="col-4 border-end">
+                            <span class="text-muted small fw-bold d-block text-uppercase" style="font-size: 0.68rem;">Approved Budget</span>
+                            <h6 class="fw-bold mb-0 mt-1" id="otbApprovedAmt">—</h6>
+                        </div>
+                        <div class="col-4 border-end">
+                            <span class="text-muted small fw-bold d-block text-uppercase" style="font-size: 0.68rem;">Spent (Submitted)</span>
+                            <h6 class="fw-bold mb-0 mt-1 text-warning" id="otbSpentAmt">—</h6>
+                        </div>
+                        <div class="col-4">
+                            <span class="text-muted small fw-bold d-block text-uppercase" style="font-size: 0.68rem;">Remaining</span>
+                            <h6 class="fw-bold mb-0 mt-1" id="otbRemainingAmt">—</h6>
+                            <small class="text-muted" id="otbThisPoAmtLabel" style="font-size:0.68rem; display:none;">This PO: <span id="otbThisPoAmt"></span></small>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-4 border-end">
-                    <span class="text-muted small fw-bold d-block text-uppercase" style="font-size: 0.75rem;">Order Amount (This PO)</span>
-                    <h4 class="fw-bold mb-0 mt-1" id="otbOrderQty">—</h4>
-                </div>
-                <div class="col-md-4">
-                    <span class="text-muted small fw-bold d-block text-uppercase" style="font-size: 0.75rem;">Balance Budget (Amount)</span>
-                    <h4 class="fw-bold mb-0 mt-1" id="otbBalanceQty">—</h4>
+                <!-- QUANTITY COLUMN -->
+                <div class="col-md-6">
+                    <div class="row text-center">
+                        <div class="col-12 mb-1">
+                            <span class="badge bg-light text-secondary border" style="font-size: 0.68rem; letter-spacing: 0.04em;">QUANTITY</span>
+                        </div>
+                        <div class="col-4 border-end">
+                            <span class="text-muted small fw-bold d-block text-uppercase" style="font-size: 0.68rem;">Approved Qty</span>
+                            <h6 class="fw-bold mb-0 mt-1" id="otbApprovedQty">—</h6>
+                        </div>
+                        <div class="col-4 border-end">
+                            <span class="text-muted small fw-bold d-block text-uppercase" style="font-size: 0.68rem;">Spent Qty</span>
+                            <h6 class="fw-bold mb-0 mt-1 text-warning" id="otbSpentQty">—</h6>
+                        </div>
+                        <div class="col-4">
+                            <span class="text-muted small fw-bold d-block text-uppercase" style="font-size: 0.68rem;">Remaining Qty</span>
+                            <h6 class="fw-bold mb-0 mt-1" id="otbBalanceQty">—</h6>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -466,7 +495,15 @@
                                     <span class="custom-select-arrow"><i class="bi bi-chevron-down"></i></span>
                                     <div class="custom-select-dropdown d-none">
                                         {% if item.subcategory %}
-                                            <div class="custom-select-option" data-value="{{ item.subcategory.id }}" data-price="0.00" data-otb-amt="{{ item.subcategory.available_budget|default:0|floatformat:2 }}" data-has-budget="{% if item.subcategory.has_budget %}true{% else %}false{% endif %}">{{ item.subcategory.name }}</div>
+                                            <div class="custom-select-option"
+                                                data-value="{{ item.subcategory.id }}"
+                                                data-price="0.00"
+                                                data-otb-amt="{{ item.subcategory.available_budget|default:0|floatformat:2 }}"
+                                                data-has-budget="{% if item.subcategory.has_budget %}true{% else %}false{% endif %}"
+                                                data-approved-amt="{{ item.subcategory.approved_amount_val|default:0|floatformat:2 }}"
+                                                data-approved-qty="{{ item.subcategory.approved_quantity_val|default:0 }}"
+                                                data-spent-amt="{{ item.subcategory.spent_amount_val|default:0|floatformat:2 }}"
+                                                data-spent-qty="{{ item.subcategory.spent_qty_val|default:0 }}">{{ item.subcategory.name }}</div>
                                         {% endif %}
                                     </div>
                                 </div>
@@ -600,20 +637,29 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div class="alert alert-info py-2" style="font-size: 0.85rem;">
-                    <i class="bi bi-info-circle-fill me-1"></i>
-                    This subcategory has sizes. Enter the total quantity to distribute them equally, or adjust them manually.
+                <!-- Admin limit info bar -->
+                <div id="sizeAdminLimitBar" class="d-flex justify-content-between align-items-center rounded px-3 py-2 mb-3" style="background:#f0fdf4; border:1px solid #bbf7d0; display:none !important;">
+                    <span class="small fw-bold text-success"><i class="bi bi-shield-check me-1"></i>Admin Approved Qty: <span id="sizeApprovedQty">—</span></span>
+                    <span class="small fw-bold text-secondary">Spent: <span id="sizeSpentQty">—</span> &nbsp;|&nbsp; Remaining: <span id="sizeRemainingQty" class="text-success fw-bold">—</span></span>
                 </div>
-                
+
+                <!-- Over-limit warning -->
+                <div id="sizeLimitWarning" class="alert alert-danger py-2 d-none" style="font-size: 0.83rem;">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                    <strong>Limit reached!</strong> Total qty cannot exceed the approved remaining qty of <strong id="sizeLimitMax">0</strong>.
+                </div>
+
                 <div class="mb-3">
                     <label class="form-label fw-bold small text-muted">Total Quantity</label>
                     <input type="number" class="form-control" id="modalTotalQty" value="" min="0">
                 </div>
-                
+
                 <div class="border-top pt-3">
-                    <label class="form-label fw-bold small text-muted mb-2">Size Quantities</label>
+                    <label class="form-label fw-bold small text-muted mb-2">Size Quantities
+                        <span class="text-muted fw-normal ms-2" style="font-size:0.75rem;">(changing a size will auto-adjust others to keep total fixed)</span>
+                    </label>
                     <div id="modalSizeInputsContainer" class="d-flex flex-column gap-2">
-                        <!-- Dynamic inputs for S, M, L etc. will go here -->
+                        <!-- Dynamic size inputs -->
                     </div>
                 </div>
             </div>
@@ -838,52 +884,120 @@
         return { qty: totQty, amt: totAmt };
     }
 
+    // Find which buying price range a given price falls into
+    function findMatchingRange(ranges, price) {
+        if (!ranges || !ranges.length || price <= 0) return null;
+        for (let r of ranges) {
+            if (price >= r.buying_from && price <= r.buying_to) return r;
+        }
+        return null;
+    }
+
     function updateOtbControl() {
-        // 1. Try to get subcategory from currently focused/active row
-        let subcatSelect = $('.item-row:focus-within').find('.subcat-select');
-        
-        // 2. If no row is focused, find the first row with a subcategory selected
-        if (!subcatSelect.length || !subcatSelect.data('selected-value')) {
+        // Prefer the focused/active row; fall back to the first row with a subcategory
+        let activeRow = $('.item-row:focus-within');
+        if (!activeRow.length || !activeRow.find('.subcat-select').data('selected-value')) {
+            activeRow = null;
             $('.item-row').each(function() {
-                let s = $(this).find('.subcat-select');
-                if (s.data('selected-value')) {
-                    subcatSelect = s;
-                    return false; // break loop
+                if ($(this).find('.subcat-select').data('selected-value')) {
+                    activeRow = $(this);
+                    return false;
                 }
             });
         }
-        
-        let subcatId = subcatSelect.length ? subcatSelect.data('selected-value') : null;
-        
-        if (!subcatId) {
+
+        if (!activeRow) {
             $('#otbActiveSubcatName').text('NO SUBCATEGORY SELECTED');
-            $('#otbAllocatedQty').text('—');
-            $('#otbOrderQty').text('—');
-            $('#otbBalanceQty').text('—');
+            $('#otbApprovedAmt, #otbSpentAmt, #otbRemainingAmt, #otbApprovedQty, #otbSpentQty, #otbBalanceQty').text('—');
+            $('#otbRemainingAmt').removeClass('text-danger text-success');
+            $('#otbThisPoAmtLabel').hide();
             return;
         }
 
-        let subcatName = subcatSelect.val() || '';
-        let otbAmt = parseFloat(subcatSelect.data('otb-amt')) || 0;
-        let orderAmt = 0;
+        let subcatSelect = activeRow.find('.subcat-select');
+        let subcatId     = subcatSelect.data('selected-value');
+        let subcatName   = subcatSelect.val() || '';
+        let currentPrice = parseFloat(activeRow.find('.price-input').val()) || 0;
+        let priceRanges  = activeRow.data('price-ranges') || [];
 
-        // Sum the order amount for this subcategory across all rows in the table
+        // Find the buying range that matches the current price
+        let matchedRange = findMatchingRange(priceRanges, currentPrice);
+
+        let approvedAmt, approvedQty, spentAmt, spentQty, rangeLabel;
+
+        if (matchedRange) {
+            // Price matches a specific buying range — show that range's data
+            approvedAmt = matchedRange.approved_amount;
+            approvedQty = matchedRange.approved_quantity;
+            spentAmt    = matchedRange.spent_amount;
+            spentQty    = matchedRange.spent_quantity;
+            rangeLabel  = ' [₹' + matchedRange.buying_from + '–' + matchedRange.buying_to + ']';
+        } else if (priceRanges.length > 0 && currentPrice > 0) {
+            // Price entered but falls in no configured range — warn
+            approvedAmt = 0; approvedQty = 0; spentAmt = 0; spentQty = 0;
+            rangeLabel  = ' [No range for ₹' + currentPrice + ']';
+        } else if (priceRanges.length > 0) {
+            // No price entered yet — show totals across ALL ranges
+            // Use the pre-computed true total from the server to avoid double-counting
+            // unconfigured (0→0) ranges
+            approvedAmt = priceRanges.reduce((s, r) => s + (r.approved_amount  || 0), 0);
+            approvedQty = priceRanges.reduce((s, r) => s + (r.approved_quantity || 0), 0);
+            spentAmt    = activeRow.data('total-spent-amount')   || 0;
+            spentQty    = activeRow.data('total-spent-quantity') || 0;
+            rangeLabel  = ' [All Ranges]';
+        } else {
+            // No ranges configured
+            approvedAmt = 0; approvedQty = 0; spentAmt = 0; spentQty = 0;
+            rangeLabel  = '';
+        }
+
+        // Sum this PO's order amount + qty for rows with same subcategory in the same range
+        let orderAmt = 0, orderQty = 0;
         $('.item-row').each(function() {
-            let rowSubcatId = $(this).find('.subcat-select').data('selected-value');
-            if (String(rowSubcatId) === String(subcatId)) {
+            let rSubcatId = $(this).find('.subcat-select').data('selected-value');
+            if (String(rSubcatId) !== String(subcatId)) return;
+            let rPrice  = parseFloat($(this).find('.price-input').val()) || 0;
+            let rRanges = $(this).data('price-ranges') || priceRanges;
+            let rRange  = findMatchingRange(rRanges, rPrice);
+            // Match: same range as active row (or both have no matched range)
+            let sameRange = matchedRange
+                ? (rRange && rRange.id === matchedRange.id)
+                : true; // when showing totals, include all rows for this subcat
+            if (sameRange) {
                 let rowData = calculateRow(this);
                 orderAmt += rowData.amt;
+                orderQty += rowData.qty;
             }
         });
 
-        let balanceAmt = otbAmt - orderAmt;
+        let remainingQty = approvedQty - spentQty - orderQty;
+        let remainingAmt = approvedAmt - spentAmt - orderAmt;
+        const fmt = v => '₹' + v.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-        $('#otbActiveSubcatName').text(subcatName);
-        $('#otbAllocatedQty').text('₹' + otbAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-        $('#otbOrderQty').text('₹' + orderAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-        $('#otbBalanceQty').text('₹' + balanceAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-        
-        if (balanceAmt < 0) {
+        $('#otbActiveSubcatName').text(subcatName + rangeLabel);
+        $('#otbApprovedAmt').text(fmt(approvedAmt)).removeClass('text-danger text-success');
+        $('#otbSpentAmt').text(fmt(spentAmt));
+
+        // Remaining Amount = Budget - Spent - This PO
+        $('#otbRemainingAmt').text(fmt(remainingAmt));
+        if (remainingAmt < 0) {
+            $('#otbRemainingAmt').addClass('text-danger').removeClass('text-success');
+        } else {
+            $('#otbRemainingAmt').addClass('text-success').removeClass('text-danger');
+        }
+        // Show "This PO" sub-label only when there is a draft amount
+        if (orderAmt > 0) {
+            $('#otbThisPoAmt').text(fmt(orderAmt));
+            $('#otbThisPoAmtLabel').show();
+        } else {
+            $('#otbThisPoAmtLabel').hide();
+        }
+
+        $('#otbApprovedQty').text(approvedQty.toLocaleString('en-IN'));
+        $('#otbSpentQty').text(spentQty.toLocaleString('en-IN'));
+        $('#otbBalanceQty').text(remainingQty.toLocaleString('en-IN'));
+
+        if (remainingQty < 0) {
             $('#otbBalanceQty').addClass('text-danger').removeClass('text-success');
         } else {
             $('#otbBalanceQty').addClass('text-success').removeClass('text-danger');
@@ -904,6 +1018,38 @@
         $('#gridTotalAmt').text('₹' + totalAmt.toFixed(2));
 
         updateOtbControl();
+    }
+
+    function distributeQtyToRowSizes(row, newQty) {
+        let alloc = row.data('size-allocations') || {};
+        let keys = Object.keys(alloc);
+        if (keys.length === 0) {
+            let subcatSizes = row.data('subcategory-sizes') || [];
+            keys = subcatSizes.map(s => s.name);
+        }
+        if (keys.length === 0) return;
+
+        let n = parseInt(newQty) || 0;
+        let s = keys.length;
+        let base = Math.floor(n / s);
+        let remainder = n % s;
+
+        let newAlloc = {};
+        let sizeDisplayParts = [];
+        keys.forEach(function(sizeName, idx) {
+            let allocated = base;
+            if (idx < remainder) {
+                allocated += 1;
+            }
+            newAlloc[sizeName] = allocated;
+            if (allocated > 0) {
+                sizeDisplayParts.push(sizeName + '-' + allocated);
+            }
+        });
+
+        row.data('size-allocations', newAlloc);
+        let displayStr = sizeDisplayParts.length > 0 ? sizeDisplayParts.join(', ') : '—';
+        row.find('.size-allocation-text').text(displayStr);
     }
 
     function getNewRowHtml() {
@@ -1027,8 +1173,10 @@
         countWords();
         
         // Initialize loaded subcategories with their attributes on page load
+        let rangeLoadPromises = [];
         $('.item-row').each(function() {
             let input = $(this).find('.subcat-select');
+            let row = $(this);
             let val = input.data('selected-value') || input.attr('data-selected-value');
             if (val) {
                 input.data('selected-text', input.val().trim());
@@ -1042,8 +1190,26 @@
                         input.attr('data-' + hyphenated, dataset[key]);
                     }
                 }
+                // Fetch buying price ranges for this subcategory
+                let p = $.ajax({
+                    url: '/get-subcategory-ranges/' + encodeURIComponent(val) + '/',
+                    method: 'GET',
+                    success: function(res) {
+                        row.data('price-ranges', (res.success && res.ranges) ? res.ranges : []);
+                        row.data('total-spent-amount', res.total_spent_amount || 0);
+                        row.data('total-spent-quantity', res.total_spent_quantity || 0);
+                    },
+                    error: function() {
+                        row.data('price-ranges', []);
+                        row.data('total-spent-amount', 0);
+                        row.data('total-spent-quantity', 0);
+                    }
+                });
+                rangeLoadPromises.push(p);
             }
         });
+        // After all ranges loaded, update OTB
+        $.when.apply($, rangeLoadPromises).always(function() { updateOtbControl(); });
 
         // Initialize vendor selected-text on page load
         let initialVendorSelect = $('#poVendorSelect');
@@ -1095,20 +1261,32 @@
         function fetchSubcategories(inputEl, query) {
             if (subcatXhr) subcatXhr.abort();
             let dropdown = $(inputEl).closest('.custom-select-container').find('.custom-select-dropdown');
+
+            // Block if no buyer selected
+            const buyerId = $('#poBuyer').data('selected-value') || '';
+            if (!buyerId) {
+                dropdown.html('<div class="p-2 text-warning small"><i class="bi bi-exclamation-triangle me-1"></i>Please select a buyer first</div>').removeClass('d-none');
+                return;
+            }
+
             dropdown.html('<div class="p-2 text-muted small"><i class="bi bi-hourglass-split me-1"></i>Searching...</div>').removeClass('d-none');
-            
+
             subcatXhr = $.ajax({
                 url: '/search-subcategory/',
                 method: 'GET',
-                data: { q: query },
+                data: { q: query, buyer: buyerId },
                 success: function(res) {
                     if (res.subcategories && res.subcategories.length > 0) {
                         let html = res.subcategories.slice(0, 10).map(s => `
-                            <div class="custom-select-option" 
-                                 data-value="${s.id}" 
-                                 data-price="0.00" 
-                                 data-otb-amt="${s.available_budget.toFixed(2)}" 
-                                 data-has-budget="${s.has_budget ? 'true' : 'false'}">
+                            <div class="custom-select-option"
+                                 data-value="${s.id}"
+                                 data-price="0.00"
+                                 data-otb-amt="${parseFloat(s.available_budget || 0).toFixed(2)}"
+                                 data-has-budget="${s.has_budget ? 'true' : 'false'}"
+                                 data-approved-amt="${parseFloat(s.approved_amount || 0).toFixed(2)}"
+                                 data-approved-qty="${parseInt(s.approved_quantity || 0)}"
+                                 data-spent-amt="${parseFloat(s.spent_amount || 0).toFixed(2)}"
+                                 data-spent-qty="${parseInt(s.spent_quantity || 0)}">
                                  ${s.name}
                             </div>
                         `).join('');
@@ -1224,32 +1402,64 @@
             let price = parseFloat($(this).data('price')) || 0;
             let row = $(this).closest('tr');
             row.find('.price-input').val(Math.round(price));
-            
+
             let subcatId = $(this).data('selected-value');
             if (subcatId) {
+                // Fetch price ranges with approved/spent budgets and store on the row
+                $.ajax({
+                    url: '/get-subcategory-ranges/' + encodeURIComponent(subcatId) + '/',
+                    method: 'GET',
+                    success: function(res) {
+                        if (res.success && res.ranges) {
+                            row.data('price-ranges', res.ranges);
+                        } else {
+                            row.data('price-ranges', []);
+                        }
+                        row.data('total-spent-amount', res.total_spent_amount || 0);
+                        row.data('total-spent-quantity', res.total_spent_quantity || 0);
+                        updateOtbControl();
+                    }
+                });
+
                 $.ajax({
                     url: '/get-subcategory-sizes/' + encodeURIComponent(subcatId) + '/',
                     method: 'GET',
                     success: function(res) {
                         if (res.success && res.sizes && res.sizes.length > 0) {
+                            row.data('subcategory-sizes', res.sizes);
                             openSizeModal(row, res.sizes);
                         } else {
+                            row.data('subcategory-sizes', []);
                             row.data('size-allocations', {});
                             row.find('.size-allocation-text').text('—');
                         }
                     }
                 });
             } else {
+                row.data('price-ranges', []);
+                row.data('subcategory-sizes', []);
                 row.data('size-allocations', {});
                 row.find('.size-allocation-text').text('—');
             }
-            
+
             calculateGrandTotals();
+        });
+
+        $(document).on('input change', '.qty-input', function() {
+            if (isPoLocked) return;
+            let row = $(this).closest('tr');
+            let val = parseInt($(this).val()) || 0;
+            let alloc = row.data('size-allocations') || {};
+            let sum = Object.values(alloc).reduce((a, b) => a + b, 0);
+            if (sum !== val) {
+                distributeQtyToRowSizes(row, val);
+            }
         });
 
         $(document).on('input change', '.qty-input, .price-input, .disc-input', function() {
             if (isPoLocked) return;
             calculateGrandTotals();
+            updateOtbControl();
         });
 
         function saveHeaderField(field, value) {
@@ -1386,40 +1596,6 @@
 
         $('#btnSavePo').on('click', function() {
             if (isPoLocked) return;
-
-            let exceededSubcats = [];
-            let subcatBalances = {};
-
-            $('.item-row').each(function() {
-                let subcatSelect = $(this).find('.subcat-select');
-                let subcatId = subcatSelect.data('selected-value');
-                if (!subcatId) return;
-
-                let hasBudget = subcatSelect.data('has-budget') === true || subcatSelect.data('has-budget') === 'true';
-                if (!hasBudget) return;
-
-                let rowData = calculateRow(this);
-                if (!subcatBalances[subcatId]) {
-                    subcatBalances[subcatId] = {
-                        name: subcatSelect.val() || '',
-                        otbAmt: parseFloat(subcatSelect.data('otb-amt')) || 0,
-                        orderAmt: 0
-                    };
-                }
-                subcatBalances[subcatId].orderAmt += rowData.amt;
-            });
-
-            for (let subcatId in subcatBalances) {
-                let bal = subcatBalances[subcatId].otbAmt - subcatBalances[subcatId].orderAmt;
-                if (bal < 0) {
-                    exceededSubcats.push(subcatBalances[subcatId].name);
-                }
-            }
-
-            if (exceededSubcats.length > 0) {
-                showToast('you reached the limit amount', 'danger');
-                return;
-            }
 
             showLoading();
             savePoData(function(res) {
@@ -1568,18 +1744,42 @@
             let currentTotQty = parseInt(row.find('.qty-input').val()) || 0;
 
             $('#modalTotalQty').val(currentTotQty || '');
+            $('#sizeLimitWarning').addClass('d-none');
+
+            // Compute admin approved qty limit for this row's price range
+            let approvedQty = 0, spentQty = 0, remainingQty = null;
+            let priceRanges = row.data('price-ranges') || [];
+            let rowPrice = parseFloat(row.find('.price-input').val()) || 0;
+            let matchedRange = findMatchingRange(priceRanges, rowPrice);
+            if (!matchedRange && priceRanges.length > 0) {
+                // No price yet — sum all ranges
+                approvedQty = priceRanges.reduce((s, r) => s + (r.approved_quantity || 0), 0);
+                spentQty    = priceRanges.reduce((s, r) => s + (r.spent_quantity    || 0), 0);
+            } else if (matchedRange) {
+                approvedQty = matchedRange.approved_quantity || 0;
+                spentQty    = matchedRange.spent_quantity    || 0;
+            }
+            if (approvedQty > 0) {
+                remainingQty = approvedQty - spentQty;
+                $('#sizeApprovedQty').text(approvedQty);
+                $('#sizeSpentQty').text(spentQty);
+                $('#sizeRemainingQty').text(remainingQty).toggleClass('text-danger', remainingQty <= 0).toggleClass('text-success', remainingQty > 0);
+                $('#sizeLimitMax').text(remainingQty);
+                $('#sizeAdminLimitBar').css('display', 'flex');
+            } else {
+                $('#sizeAdminLimitBar').css('display', 'none');
+            }
+            window.sizeApprovedMax = remainingQty; // null means no limit
 
             sizesList.forEach(function(sizeObj) {
                 let sizeName = sizeObj.name;
                 let qty = existingAlloc[sizeName] || 0;
-                
-                let html = `
+                container.append(`
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <span class="fw-bold text-dark text-uppercase" style="width: 30%;">${sizeName}</span>
                         <input type="number" class="form-control form-control-sm size-qty-input" data-size-name="${sizeName}" value="${qty}" min="0" style="width: 65%;">
                     </div>
-                `;
-                container.append(html);
+                `);
             });
 
             let sumExisting = Object.values(existingAlloc).reduce((a, b) => a + b, 0);
@@ -1608,15 +1808,58 @@
 
         $(document).on('input', '#modalTotalQty', function() {
             let totalQty = parseInt($(this).val()) || 0;
+            const max = window.sizeApprovedMax;
+
+            // Enforce admin limit
+            if (max !== null && totalQty > max) {
+                $(this).val(max);
+                totalQty = max;
+                $('#sizeLimitWarning').removeClass('d-none');
+                $('#sizeRemainingQty').text(0).addClass('text-danger').removeClass('text-success');
+            } else {
+                $('#sizeLimitWarning').addClass('d-none');
+                if (max !== null) {
+                    let rem = max - totalQty;
+                    $('#sizeRemainingQty').text(rem).toggleClass('text-danger', rem < 0).toggleClass('text-success', rem >= 0);
+                }
+            }
             distributeEqually(totalQty, window.activeSizesForModal);
         });
 
         $(document).on('input', '.size-qty-input', function() {
-            let sum = 0;
+            // Total qty stays FIXED — when one size changes, adjust others to compensate
+            const changedInput = $(this);
+            const totalQty = parseInt($('#modalTotalQty').val()) || 0;
+
+            let changedVal = parseInt(changedInput.val()) || 0;
+
+            // Cap at total
+            if (changedVal > totalQty) {
+                changedVal = totalQty;
+                changedInput.val(changedVal);
+            }
+
+            // Collect other inputs
+            let otherInputs = [];
             $('#modalSizeInputsContainer .size-qty-input').each(function() {
-                sum += parseInt($(this).val()) || 0;
+                if (this !== changedInput[0]) otherInputs.push($(this));
             });
-            $('#modalTotalQty').val(sum);
+
+            // How much remains for other sizes
+            let remaining = totalQty - changedVal;
+            let othersSum = otherInputs.reduce((s, inp) => s + (parseInt(inp.val()) || 0), 0);
+
+            if (othersSum > remaining) {
+                // Need to reduce others — take from the last inputs first
+                let toReduce = othersSum - remaining;
+                for (let i = otherInputs.length - 1; i >= 0 && toReduce > 0; i--) {
+                    let v = parseInt(otherInputs[i].val()) || 0;
+                    let cut = Math.min(v, toReduce);
+                    otherInputs[i].val(v - cut);
+                    toReduce -= cut;
+                }
+            }
+            // If othersSum < remaining: leave unallocated (don't auto-increase others)
         });
 
         $(document).on('keypress', '#modalTotalQty, .size-qty-input', function(e) {
@@ -1638,18 +1881,26 @@
                     alloc[sizeName] = qty;
                     sizeDisplayParts.push(`${sizeName}-${qty}`);
                 }
+                sum += qty;
             });
+
+            // Block if over admin limit
+            const max = window.sizeApprovedMax;
+            if (max !== null && sum > max) {
+                $('#sizeLimitWarning').removeClass('d-none');
+                $('#sizeLimitMax').text(max);
+                return;
+            }
 
             if (window.activeRowForSizes) {
                 window.activeRowForSizes.data('size-allocations', alloc);
-                
+
                 let displayStr = sizeDisplayParts.length > 0 ? sizeDisplayParts.join(', ') : '—';
                 window.activeRowForSizes.find('.size-allocation-text').text(displayStr);
 
-                sum = Object.values(alloc).reduce((a, b) => a + b, 0);
-                window.activeRowForSizes.find('.qty-input').val(sum);
-
+                window.activeRowForSizes.find('.qty-input').val(sum).trigger('input');
                 calculateGrandTotals();
+                updateOtbControl();
             }
 
             $('#sizeSelectionModal').modal('hide');
