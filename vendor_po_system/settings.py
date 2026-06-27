@@ -4,18 +4,22 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
 
 load_dotenv(BASE_DIR / '.env')
 
 # ---------------------------------------------------------------------------
 # Secrets & environment  (set these in your OS environment or a .env loader)
 # ---------------------------------------------------------------------------
-SECRET_KEY = os.environ.get(
-    "DJANGO_SECRET_KEY",
-    "django-insecure-%q(igcohe09957a0g)r9sfsgo#q3kalivmxzdc1(cq$cx@9!h)",  # dev only
-)
+DEBUG = os.environ.get("DJANGO_DEBUG", "False") == "True"
 
-DEBUG = os.environ.get("DJANGO_DEBUG", "True") == "True"
+_secret = os.environ.get("DJANGO_SECRET_KEY", "")
+if not _secret:
+    if DEBUG:
+        _secret = "django-insecure-dev-only-not-for-production"
+    else:
+        raise ImproperlyConfigured("DJANGO_SECRET_KEY environment variable is not set.")
+SECRET_KEY = _secret
 
 
 
@@ -152,7 +156,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"  # collectstatic target for production
 # Auth redirects
 # ---------------------------------------------------------------------------
 LOGIN_URL = "/login/"
-LOGIN_REDIRECT_URL = ""
+LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/login/"
 
 

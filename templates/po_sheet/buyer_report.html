@@ -1,0 +1,652 @@
+{% extends 'po_sheet/base.html' %}
+{% block title %}Buyer Report{% endblock %}
+
+{% block extra_css %}
+<style>
+  .rpt-card {
+    border: none; border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.07);
+    transition: transform .2s, box-shadow .2s;
+  }
+  .rpt-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+
+  .stat-icon {
+    width: 50px; height: 50px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; flex-shrink: 0;
+  }
+  .stat-val { font-size: 1.6rem; font-weight: 800; color: #1e293b; line-height: 1.1; }
+  .stat-lbl { font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .07em; }
+
+  .sec-title {
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .1em; color: #94a3b8; margin-bottom: .9rem;
+    display: flex; align-items: center; gap: .5rem;
+  }
+  .sec-title::after { content:''; flex:1; height:1px; background:#f1f5f9; }
+
+  .rpt-box { background: #fff; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.07); padding: 1.5rem; }
+
+  /* Budget bar */
+  .bbar-wrap { background:#f1f5f9; border-radius:99px; height:9px; flex:1; overflow:hidden; min-width:80px; }
+  .bbar      { height:100%; border-radius:99px; transition:width .6s ease; }
+  .bbar-g  { background: linear-gradient(90deg,#10b981,#059669); }
+  .bbar-y  { background: linear-gradient(90deg,#f59e0b,#d97706); }
+  .bbar-r  { background: linear-gradient(90deg,#ef4444,#dc2626); }
+
+  .pct-pill { display:inline-block; padding:.2em .65em; border-radius:99px; font-size:.75rem; font-weight:700; }
+  .pct-g { background:#d1fae5; color:#065f46; }
+  .pct-y { background:#fef3c7; color:#92400e; }
+  .pct-r { background:#fee2e2; color:#991b1b; }
+
+  .filter-bar { background:#fff; border-radius:16px; box-shadow:0 2px 12px rgba(0,0,0,.06); padding:1.25rem 1.5rem; margin-bottom:1.5rem; }
+
+  .export-btn {
+    background: linear-gradient(135deg,#10b981,#059669);
+    color:#fff; border:none; border-radius:12px;
+    padding:.55rem 1.2rem; font-weight:700; font-size:.875rem;
+    display:inline-flex; align-items:center; gap:.45rem;
+    box-shadow:0 4px 12px rgba(16,185,129,.3);
+    transition:all .2s; text-decoration:none;
+  }
+  .export-btn:hover { transform:translateY(-2px); box-shadow:0 6px 18px rgba(16,185,129,.4); color:#fff; }
+
+  .table-sheet thead th { white-space: nowrap; }
+  .table-sheet tbody td { font-size:.875rem; vertical-align:middle; }
+
+  .buyer-avatar {
+    width:34px; height:34px; border-radius:10px;
+    background:linear-gradient(135deg,#4f46e5,#7c3aed);
+    color:#fff; font-weight:800; font-size:.85rem;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+
+  .overall-strip {
+    background: linear-gradient(135deg,#4f46e5,#7c3aed);
+    border-radius: 16px; padding: 1.25rem 1.5rem; color:#fff; margin-bottom:1.5rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="padding:24px;">
+
+  <!-- PAGE HEADER -->
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+    <div>
+      <h4 class="fw-800 mb-0" style="color:#1e293b; font-weight:800;">
+        <i class="bi bi-person-lines-fill me-2" style="color:#4f46e5;"></i>Buyer Report
+      </h4>
+      <p class="mb-0 mt-1" style="color:#94a3b8; font-size:.85rem;">Submitted POs only — buyer-wise performance & budget analysis</p>
+    </div>
+    <!-- Export button carries current filters -->
+    <a href="{% url 'export_buyer_report_excel' %}?buyer={{ buyer_name }}&season={{ season_filter }}&date_from={{ date_from }}&date_to={{ date_to }}"
+       class="export-btn">
+      <i class="bi bi-file-earmark-excel"></i> Export Excel
+    </a>
+  </div>
+
+  <!-- FILTER BAR -->
+  <div class="filter-bar">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-12 col-md-3">
+        <label class="form-label">Buyer</label>
+        <select name="buyer" class="form-select">
+          <option value="">All Buyers</option>
+          {% for b in buyers %}
+          <option value="{{ b.name }}" {% if buyer_name == b.name %}selected{% endif %}>{{ b.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12 col-md-3">
+        <label class="form-label">Season</label>
+        <select name="season" class="form-select">
+          <option value="">All Seasons</option>
+          {% for s in seasons %}
+          <option value="{{ s }}" {% if season_filter == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label">Date From</label>
+        <input type="date" name="date_from" class="form-control" value="{{ date_from }}">
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label">Date To</label>
+        <input type="date" name="date_to" class="form-control" value="{{ date_to }}">
+      </div>
+      <div class="col-12 col-md-2 d-flex gap-2">
+        <button type="submit" class="btn btn-primary w-100"><i class="bi bi-funnel"></i> Apply</button>
+        <a href="{% url 'buyer_report' %}" class="btn btn-outline-secondary"><i class="bi bi-x-lg"></i></a>
+      </div>
+    </form>
+  </div>
+
+  {% if not buyer_name %}
+  <div class="rpt-box mb-4">
+    <div class="sec-title"><i class="bi bi-people" style="color:#4f46e5;"></i> All Buyers — Submitted PO Summary</div>
+    {% if all_buyers_summary %}
+    <div class="table-responsive">
+      <table class="table table-sheet mb-0">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Buyer</th>
+            <th class="text-center">Submitted POs</th>
+            <th class="text-end">Total Qty</th>
+            <th class="text-end">Total Value (₹)</th>
+            <th class="text-end">Approved Budget (₹)</th>
+            <th style="min-width:200px;">Budget Used</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in all_buyers_summary %}
+          <tr>
+            <td style="color:#94a3b8; font-weight:700; font-size:.8rem;">{{ forloop.counter }}</td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="buyer-avatar">{{ b.name|slice:":1"|upper }}</div>
+                <span class="fw-600">{{ b.name }}</span>
+              </div>
+            </td>
+            <td class="text-center">
+              <span style="background:#f1f5f9; border-radius:99px; padding:.2em .75em; font-weight:700; font-size:.82rem;">
+                {{ b.total_pos }}
+              </span>
+            </td>
+            <td class="text-end fw-600">{{ b.total_qty }}</td>
+            <td class="text-end fw-600" style="color:#10b981;">₹{{ b.spent|floatformat:0 }}</td>
+            <td class="text-end" style="color:#64748b;">
+              {% if b.approved %}₹{{ b.approved|floatformat:0 }}{% else %}—{% endif %}
+            </td>
+            <td>
+              {% if b.approved %}
+              <div class="d-flex align-items-center gap-2">
+                <div class="bbar-wrap">
+                  <div class="bbar {% if b.pct >= 90 %}bbar-r{% elif b.pct >= 70 %}bbar-y{% else %}bbar-g{% endif %}"
+                       style="width:{% if b.pct > 100 %}100{% else %}{{ b.pct }}{% endif %}%;"></div>
+                </div>
+                <span class="pct-pill {% if b.pct >= 90 %}pct-r{% elif b.pct >= 70 %}pct-y{% else %}pct-g{% endif %}">
+                  {{ b.pct }}%
+                </span>
+              </div>
+              {% else %}
+              <span style="color:#94a3b8; font-size:.8rem;">No budget set</span>
+              {% endif %}
+            </td>
+            <td>
+              <a href="?buyer={{ b.name }}{% if season_filter %}&season={{ season_filter }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}"
+                 style="background:linear-gradient(135deg,#4f46e5,#7c3aed); color:#fff; border-radius:8px; padding:.3em .8em; font-size:.8rem; font-weight:700; text-decoration:none; white-space:nowrap;">
+                <i class="bi bi-eye"></i> View
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5" style="color:#94a3b8;">
+      <i class="bi bi-inbox" style="font-size:2.5rem; opacity:.3;"></i>
+      <p class="mt-3 mb-0" style="font-weight:600;">No submitted POs found.</p>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if buyer_name %}
+  <!-- OVERALL STRIP -->
+  <div class="overall-strip d-flex flex-wrap gap-4 align-items-center">
+    <div>
+      <div style="font-size:.75rem; opacity:.8; font-weight:600; text-transform:uppercase; letter-spacing:.07em;">Overall Budget Used</div>
+      <div style="font-size:2rem; font-weight:800; line-height:1.1;">{{ overall_pct }}%</div>
+    </div>
+    <div style="width:1px; height:48px; background:rgba(255,255,255,.2);"></div>
+    <div>
+      <div style="font-size:.75rem; opacity:.8; font-weight:600;">Approved</div>
+      <div style="font-size:1.2rem; font-weight:700;">₹{{ total_approved|floatformat:0 }}</div>
+    </div>
+    <div>
+      <div style="font-size:.75rem; opacity:.8; font-weight:600;">Spent</div>
+      <div style="font-size:1.2rem; font-weight:700;">₹{{ total_spent|floatformat:0 }}</div>
+    </div>
+    <div>
+      <div style="font-size:.75rem; opacity:.8; font-weight:600;">Balance</div>
+      <div style="font-size:1.2rem; font-weight:700;">₹{{ total_approved|add:0|floatformat:0 }}</div>
+    </div>
+    {% if buyer_name %}
+    <div class="ms-auto d-flex align-items-center gap-2">
+      <div class="buyer-avatar" style="width:44px;height:44px;font-size:1.1rem;">{{ buyer_name|slice:":1"|upper }}</div>
+      <div>
+        <div style="font-size:.75rem; opacity:.8;">Selected Buyer</div>
+        <div style="font-size:1rem; font-weight:700;">{{ buyer_name }}</div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- SUMMARY CARDS -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="rpt-card p-3 h-100" style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);">
+        <div class="d-flex align-items-center gap-3">
+          <div class="stat-icon" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);">
+            <i class="bi bi-file-earmark-check text-white"></i>
+          </div>
+          <div>
+            <div class="stat-val">{{ summary.total_pos|default:0 }}</div>
+            <div class="stat-lbl">Submitted POs</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="rpt-card p-3 h-100" style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);">
+        <div class="d-flex align-items-center gap-3">
+          <div class="stat-icon" style="background:linear-gradient(135deg,#10b981,#059669);">
+            <i class="bi bi-currency-rupee text-white"></i>
+          </div>
+          <div>
+            <div class="stat-val" style="font-size:1.3rem;">₹{{ summary.total_value|default:0|floatformat:0 }}</div>
+            <div class="stat-lbl">Total Value</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="rpt-card p-3 h-100" style="background:linear-gradient(135deg,#eff6ff,#dbeafe);">
+        <div class="d-flex align-items-center gap-3">
+          <div class="stat-icon" style="background:linear-gradient(135deg,#3b82f6,#2563eb);">
+            <i class="bi bi-box-seam text-white"></i>
+          </div>
+          <div>
+            <div class="stat-val">{{ summary.total_qty|default:0 }}</div>
+            <div class="stat-lbl">Total Quantity</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="rpt-card p-3 h-100" style="background:linear-gradient(135deg,#fff7ed,#fed7aa);">
+        <div class="d-flex align-items-center gap-3">
+          <div class="stat-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);">
+            <i class="bi bi-pie-chart text-white"></i>
+          </div>
+          <div>
+            <div class="stat-val">{{ overall_pct }}%</div>
+            <div class="stat-lbl">Budget Used</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- CHARTS ROW — only when buyer selected -->
+  {% if buyer_name %}
+  <div class="row g-3 mb-4">
+
+    <!-- Chart 2: SubCategory Donut -->
+    <div class="col-12 col-md-5">
+      <div class="rpt-box h-100">
+        <div class="sec-title"><i class="bi bi-pie-chart" style="color:#4f46e5;"></i> SubCategory Value Split</div>
+        {% if subcat_breakdown %}
+        <div class="d-flex justify-content-center">
+          <canvas id="subcatDonut" style="max-height:260px; max-width:260px;"></canvas>
+        </div>
+        {% else %}
+        <p class="text-muted text-center py-4 small">No order data available.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Chart 3: Vendor-wise Order Value -->
+    <div class="col-12 col-md-7">
+      <div class="rpt-box h-100">
+        <div class="sec-title"><i class="bi bi-shop" style="color:#4f46e5;"></i> Vendor-wise Order Value</div>
+        {% if po_list %}
+        <canvas id="vendorBarChart" style="max-height:260px;"></canvas>
+        {% else %}
+        <p class="text-muted text-center py-4 small">No PO data available.</p>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Chart 1: Budget Health Horizontal Bar -->
+  {% if budget_health %}
+  <div class="rpt-box mb-4">
+    <div class="sec-title"><i class="bi bi-bar-chart-horizontal" style="color:#4f46e5;"></i> Budget — Approved vs Spent per SubCategory</div>
+    <canvas id="budgetBarChart" style="max-height:320px;"></canvas>
+  </div>
+  {% endif %}
+  {% endif %}
+
+  <!-- SECTION 1: BUDGET HEALTH -->
+  <div class="rpt-box mb-4">
+    <div class="sec-title"><i class="bi bi-shield-check" style="color:#4f46e5;"></i> Budget Health — SubCategory Wise</div>
+    {% if not buyer_name %}
+    <div class="text-center py-4" style="color:#94a3b8;">
+      <i class="bi bi-person-fill" style="font-size:2rem; opacity:.4;"></i>
+      <p class="mt-2 mb-0" style="font-size:.9rem; font-weight:600;">Select a buyer from the filter above to view budget health.</p>
+    </div>
+    {% elif budget_health %}
+    <div class="table-responsive">
+      <table class="table table-sheet mb-0">
+        <thead>
+          <tr>
+            <th>SubCategory</th>
+            <th>CH4 Code</th>
+            <th class="text-end">Approved (₹)</th>
+            <th class="text-end">Spent (₹)</th>
+            <th class="text-end">Balance (₹)</th>
+            <th style="min-width:200px;">Budget Used</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in budget_health %}
+          <tr>
+            <td class="fw-600">{{ b.subcat }}</td>
+            <td><span style="background:#f1f5f9;border-radius:6px;padding:.15em .5em;font-size:.8rem;font-weight:600;">{{ b.ch4_code }}</span></td>
+            <td class="text-end">{{ b.approved|floatformat:0 }}</td>
+            <td class="text-end fw-600">{{ b.spent|floatformat:0 }}</td>
+            <td class="text-end">
+              {% if b.balance >= 0 %}
+                <span style="color:#10b981;font-weight:700;">{{ b.balance|floatformat:0 }}</span>
+              {% else %}
+                <span style="color:#ef4444;font-weight:700;">{{ b.balance|floatformat:0 }}</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if b.approved %}
+              <div class="d-flex align-items-center gap-2">
+                <div class="bbar-wrap">
+                  <div class="bbar {% if b.pct >= 90 %}bbar-r{% elif b.pct >= 70 %}bbar-y{% else %}bbar-g{% endif %}"
+                       style="width:{% if b.pct > 100 %}100{% else %}{{ b.pct }}{% endif %}%;"></div>
+                </div>
+                <span class="pct-pill {% if b.pct >= 90 %}pct-r{% elif b.pct >= 70 %}pct-y{% else %}pct-g{% endif %}">
+                  {{ b.pct }}%
+                </span>
+              </div>
+              {% else %}
+              <span style="color:#94a3b8;font-size:.8rem;">No budget set</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted text-center py-3">No subcategories linked to this buyer.</p>
+    {% endif %}
+  </div>
+
+  <!-- SECTION 2: SUBCATEGORY BREAKDOWN -->
+  <div class="rpt-box mb-4">
+    <div class="sec-title"><i class="bi bi-grid-3x3-gap" style="color:#4f46e5;"></i> SubCategory Order Breakdown</div>
+    {% if not buyer_name %}
+    <div class="text-center py-4" style="color:#94a3b8;">
+      <i class="bi bi-grid-3x3-gap" style="font-size:2rem; opacity:.4;"></i>
+      <p class="mt-2 mb-0" style="font-size:.9rem; font-weight:600;">Select a buyer to view subcategory breakdown.</p>
+    </div>
+    {% elif subcat_breakdown %}
+    <div class="table-responsive">
+      <table class="table table-sheet mb-0">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>SubCategory</th>
+            <th>CH4 Code</th>
+            <th class="text-center">PO Items</th>
+            <th class="text-end">Total Qty</th>
+            <th class="text-end">Total Amount (₹)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for sc in subcat_breakdown %}
+          <tr>
+            <td style="color:#94a3b8;font-weight:700;font-size:.8rem;">{{ forloop.counter }}</td>
+            <td class="fw-600">{{ sc.subcategory__name|default:"—" }}</td>
+            <td><span style="background:#f1f5f9;border-radius:6px;padding:.15em .5em;font-size:.8rem;font-weight:600;">{{ sc.subcategory__ch4_code|default:"—" }}</span></td>
+            <td class="text-center">{{ sc.total_items }}</td>
+            <td class="text-end fw-600">{{ sc.total_qty|default:0 }}</td>
+            <td class="text-end fw-600" style="color:#4f46e5;">₹{{ sc.total_amt|default:0|floatformat:0 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted text-center py-3">No order data found.</p>
+    {% endif %}
+  </div>
+
+  <!-- SECTION 3: PO LIST -->
+  <div class="rpt-box mb-4">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <div class="sec-title mb-0"><i class="bi bi-list-ul" style="color:#4f46e5;"></i> PO List ({{ po_list|length }} records)</div>
+    </div>
+    {% if not buyer_name %}
+    <div class="text-center py-4" style="color:#94a3b8;">
+      <i class="bi bi-list-ul" style="font-size:2rem; opacity:.4;"></i>
+      <p class="mt-2 mb-0" style="font-size:.9rem; font-weight:600;">Select a buyer to view the PO list.</p>
+    </div>
+    {% elif po_list %}
+    <div class="table-responsive">
+      <table class="table table-sheet mb-0" id="poListTable">
+        <thead>
+          <tr>
+            <th>PO Number</th>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Season</th>
+            <th>Buyer</th>
+            <th>Vendor</th>
+            <th class="text-end">Qty</th>
+            <th class="text-end">Value (₹)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for po in po_list %}
+          <tr>
+            <td>
+              <span style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);color:#4f46e5;font-weight:700;padding:.2em .6em;border-radius:8px;font-size:.82rem;">
+                {{ po.po_number }}
+              </span>
+            </td>
+            <td style="color:#64748b;">{{ po.po_date }}</td>
+            <td>
+              <span style="background:#f1f5f9;border-radius:6px;padding:.15em .5em;font-size:.8rem;font-weight:600;">{{ po.po_type }}</span>
+            </td>
+            <td>{{ po.season|default:"—" }}</td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="buyer-avatar" style="width:26px;height:26px;font-size:.7rem;border-radius:7px;">
+                  {{ po.buyer__name|slice:":1"|upper|default:"?" }}
+                </div>
+                {{ po.buyer__name|default:"—" }}
+              </div>
+            </td>
+            <td>{{ po.vendor__vendor_name|default:"—" }}</td>
+            <td class="text-end fw-600">{{ po.total_quantity|default:0 }}</td>
+            <td class="text-end fw-600" style="color:#10b981;">₹{{ po.grand_total|default:0|floatformat:0 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted text-center py-3">No submitted POs found for the selected filters.</p>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{{ chart_subcat_labels|json_script:"d-subcat-labels" }}
+{{ chart_subcat_values|json_script:"d-subcat-values" }}
+{{ chart_vendor_labels|json_script:"d-vendor-labels" }}
+{{ chart_vendor_values|json_script:"d-vendor-values" }}
+{{ chart_budget_labels|json_script:"d-budget-labels" }}
+{{ chart_budget_approved|json_script:"d-budget-approved" }}
+{{ chart_budget_spent|json_script:"d-budget-spent" }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+$(document).ready(function() {
+  // DataTable for PO list
+  if ($('#poListTable tbody tr').length > 5) {
+    $('#poListTable').DataTable({
+      pageLength: 15,
+      order: [[1, 'desc']],
+      language: { search: 'Search POs:' },
+      dom: '<"d-flex justify-content-between align-items-center mb-2"lf>rtip',
+    });
+  }
+
+  {% if buyer_name %}
+
+  const PALETTE = [
+    '#4f46e5','#7c3aed','#10b981','#f59e0b','#ef4444',
+    '#3b82f6','#ec4899','#06b6d4','#84cc16','#f97316'
+  ];
+
+  // ── Chart 2: SubCategory Donut ──────────────────────────────────────
+  {% if subcat_breakdown %}
+  const subcatLabels = JSON.parse(document.getElementById('d-subcat-labels').textContent);
+  const subcatValues = JSON.parse(document.getElementById('d-subcat-values').textContent);
+  new Chart(document.getElementById('subcatDonut'), {
+    type: 'doughnut',
+    data: {
+      labels: subcatLabels,
+      datasets: [{
+        data: subcatValues,
+        backgroundColor: PALETTE.slice(0, subcatLabels.length),
+        borderWidth: 3,
+        borderColor: '#fff',
+        hoverOffset: 8,
+      }]
+    },
+    options: {
+      cutout: '60%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { font: { size: 12, weight: '600' }, padding: 14, boxWidth: 14 }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ₹${ctx.parsed.toLocaleString('en-IN')}  (${((ctx.parsed / subcatValues.reduce((a,b)=>a+b,0))*100).toFixed(1)}%)`
+          }
+        }
+      }
+    }
+  });
+  {% endif %}
+
+  // ── Chart 3: Vendor-wise Order Value ───────────────────────────────
+  {% if po_list %}
+  const vendorLabels = JSON.parse(document.getElementById('d-vendor-labels').textContent);
+  const vendorValues = JSON.parse(document.getElementById('d-vendor-values').textContent);
+  const vendorColors = [
+    'rgba(79,70,229,0.75)','rgba(124,58,237,0.75)','rgba(16,185,129,0.75)',
+    'rgba(245,158,11,0.75)','rgba(59,130,246,0.75)','rgba(236,72,153,0.75)',
+    'rgba(6,182,212,0.75)','rgba(249,115,22,0.75)'
+  ];
+  new Chart(document.getElementById('vendorBarChart'), {
+    type: 'bar',
+    data: {
+      labels: vendorLabels,
+      datasets: [{
+        label: 'Order Value (₹)',
+        data: vendorValues,
+        backgroundColor: vendorColors.slice(0, vendorLabels.length),
+        borderColor: vendorColors.slice(0, vendorLabels.length).map(c => c.replace('0.75','1')),
+        borderWidth: 2,
+        borderRadius: 10,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ₹${ctx.parsed.y.toLocaleString('en-IN')}`
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: { color: '#f1f5f9' },
+          ticks: { callback: v => '₹' + (v >= 100000 ? (v/100000).toFixed(1)+'L' : v.toLocaleString('en-IN')) }
+        },
+        x: { grid: { display: false }, ticks: { font: { weight: '600' } } }
+      }
+    }
+  });
+  {% endif %}
+
+  // ── Chart 1: Budget Horizontal Bar ─────────────────────────────────
+  {% if budget_health %}
+  const budgetLabels   = JSON.parse(document.getElementById('d-budget-labels').textContent);
+  const budgetApproved = JSON.parse(document.getElementById('d-budget-approved').textContent);
+  const budgetSpent    = JSON.parse(document.getElementById('d-budget-spent').textContent);
+  new Chart(document.getElementById('budgetBarChart'), {
+    type: 'bar',
+    data: {
+      labels: budgetLabels,
+      datasets: [
+        {
+          label: 'Approved (₹)',
+          data: budgetApproved,
+          backgroundColor: 'rgba(79,70,229,0.15)',
+          borderColor: '#4f46e5',
+          borderWidth: 2,
+          borderRadius: 6,
+        },
+        {
+          label: 'Spent (₹)',
+          data: budgetSpent,
+          backgroundColor: budgetSpent.map((s, i) => {
+            const pct = budgetApproved[i] ? (s / budgetApproved[i]) * 100 : 0;
+            return pct >= 90 ? 'rgba(239,68,68,0.7)' : pct >= 70 ? 'rgba(245,158,11,0.7)' : 'rgba(16,185,129,0.7)';
+          }),
+          borderColor: budgetSpent.map((s, i) => {
+            const pct = budgetApproved[i] ? (s / budgetApproved[i]) * 100 : 0;
+            return pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : '#10b981';
+          }),
+          borderWidth: 2,
+          borderRadius: 6,
+        }
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: {
+        legend: { position: 'top', labels: { font: { size: 12, weight: '600' }, boxWidth: 14 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ₹${ctx.parsed.x.toLocaleString('en-IN')}`
+          }
+        }
+      },
+      scales: {
+        x: { beginAtZero: true, grid: { color: '#f1f5f9' },
+             ticks: { callback: v => '₹' + (v >= 100000 ? (v/100000).toFixed(1)+'L' : v.toLocaleString('en-IN')) } },
+        y: { grid: { display: false }, ticks: { font: { weight: '600', size: 12 } } }
+      }
+    }
+  });
+  {% endif %}
+
+  {% endif %} {# end buyer_name #}
+});
+</script>
+{% endblock %}

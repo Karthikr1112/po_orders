@@ -261,7 +261,10 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                <a href="" id="deleteLink" class="btn btn-danger"><i class="bi bi-trash3-fill me-1"></i>Delete User</a>
+                <form id="deleteForm" method="post" action="" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" id="deleteLink" class="btn btn-danger"><i class="bi bi-trash3-fill me-1"></i>Delete User</button>
+                </form>
             </div>
         </div>
     </div>
@@ -323,7 +326,7 @@
 
     function confirmDelete(id, username) {
         document.getElementById('deleteUsername').innerText = username;
-        document.getElementById('deleteLink').href = `/delete-user/${id}/`;
+        document.getElementById('deleteForm').action = `/delete-user/${id}/`;
         
         const deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
         deleteModal.show();

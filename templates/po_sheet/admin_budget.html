@@ -205,9 +205,6 @@
             </p>
         </div>
         <div class="d-flex gap-2 align-items-center">
-            <a href="{% url 'budget_spent_details' %}{% if selected_buyer %}?buyer={{ selected_buyer.id }}{% endif %}{% if season_id %}&season={{ season_id }}{% endif %}" class="btn btn-sm btn-outline-primary d-flex align-items-center gap-1" style="border-radius: 4px !important;">
-                <i class="bi bi-pie-chart-fill"></i> Spent Amount Details
-            </a>
             {% if selected_buyer %}
             <div class="custom-select-container" style="width: 300px;">
                 <input type="text" id="budgetSubcatSelect"

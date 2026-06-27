@@ -13,7 +13,6 @@ urlpatterns = [
     path('update-po-item/<int:item_id>/', views.update_po_item, name='update_po_item'),
     path('delete-po-item/<int:item_id>/', views.delete_po_item, name='delete_po_item'),
     path('admin-budget/', views.admin_budget, name='admin_budget'),
-    path('budget-spent-details/', views.budget_spent_details, name='budget_spent_details'),
     path('update-price-range/', views.update_price_range, name='update_price_range'),
     path('add-price-range/', views.add_price_range, name='add_price_range'),
     path('delete-price-range/', views.delete_price_range, name='delete_price_range'),
@@ -39,5 +38,9 @@ urlpatterns = [
     path('delete-user/<int:user_id>/', views.delete_user, name='delete_user'),
     path('delete-po/<int:po_id>/', views.delete_po, name='delete_po'),
     path('upload-excel/', views.upload_excel, name='upload_excel'),
+
+    # Reports
+    path('reports/buyer/', views.buyer_report, name='buyer_report'),
+    path('reports/buyer/export/', views.export_buyer_report_excel, name='export_buyer_report_excel'),
 ]
 

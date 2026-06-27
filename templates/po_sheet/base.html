@@ -217,6 +217,28 @@
             line-height: 1.4;
         }
 
+        .sb-collapse-btn {
+            display: flex; align-items: center; gap: 0.6rem;
+            padding: 0.55rem 0.85rem;
+            border-radius: var(--border-radius-md);
+            font-weight: 600; font-size: 0.875rem;
+            color: #64748b; border: 2px solid transparent;
+            background: none; width: 100%; text-align: left;
+            cursor: pointer; transition: all 0.2s ease;
+        }
+        .sb-collapse-btn:hover { background:#f8fafc; border-color:#e2e8f0; color:#4f46e5; }
+        .sb-collapse-btn.active {
+            background:#f5f3ff; color:#4f46e5;
+            border-left: 4px solid #4f46e5; border-color: transparent;
+            border-radius: 0 var(--border-radius-md) var(--border-radius-md) 0;
+            padding-left: calc(0.85rem - 4px);
+        }
+        .sb-arrow { margin-left: auto; font-size: 0.7rem; transition: transform 0.2s; }
+        .sb-collapse-btn[aria-expanded="true"] .sb-arrow { transform: rotate(180deg); }
+        .sb-submenu { padding-left: 0.9rem; display: flex; flex-direction: column; gap: 0.15rem; margin-top: 0.15rem; }
+        .sb-submenu .sb-link { font-size: 0.83rem; padding: 0.45rem 0.75rem; }
+
+
         .sb-footer {
             padding: 0.9rem;
             border-top: 1px solid #f1f5f9;
@@ -931,6 +953,23 @@
             </a>
 
             {% if user.is_staff %}
+            <div class="sb-nav-label">Reports</div>
+            <button class="sb-collapse-btn {% if '/reports/' in request.path %}active{% endif %}"
+                    data-bs-toggle="collapse" data-bs-target="#reportsSubmenu"
+                    aria-expanded="{% if '/reports/' in request.path %}true{% else %}false{% endif %}">
+                <i class="bi bi-bar-chart-line"></i> Reports
+                <i class="bi bi-chevron-down sb-arrow"></i>
+            </button>
+            <div class="collapse {% if '/reports/' in request.path %}show{% endif %}" id="reportsSubmenu">
+                <div class="sb-submenu">
+                    <a href="{% url 'buyer_report' %}" class="sb-link">
+                        <i class="bi bi-person-lines-fill"></i> Buyer Report
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if user.is_staff %}
             <div class="sb-nav-label">Admin Menu</div>
             <a href="{% url 'size_manager' %}" class="sb-link">
                 <i class="bi bi-rulers"></i> Size Manager
@@ -954,9 +993,12 @@
                     <i class="bi bi-person-circle" style="color: #4f46e5; font-size: 1.1rem;"></i>
                     <span style="font-weight: 700; color: #1e293b; font-size: 0.85rem;">{{ user.username }}</span>
                 </div>
-                <a href="{% url 'logout' %}" class="sb-link sb-danger">
-                    <i class="bi bi-box-arrow-right"></i> Logout
-                </a>
+                <form method="post" action="{% url 'logout' %}" style="margin:0;">
+                    {% csrf_token %}
+                    <button type="submit" class="sb-link sb-danger" style="background:none;border:none;padding:0;cursor:pointer;width:100%;text-align:left;">
+                        <i class="bi bi-box-arrow-right"></i> Logout
+                    </button>
+                </form>
             </div>
             {% endif %}
         </div>
@@ -989,6 +1031,23 @@
             </a>
 
             {% if user.is_staff %}
+            <div class="sb-nav-label text-muted small uppercase fw-bold mb-1">Reports</div>
+            <button class="sb-collapse-btn mb-1"
+                    data-bs-toggle="collapse" data-bs-target="#reportsSubmenuMobile"
+                    aria-expanded="{% if '/reports/' in request.path %}true{% else %}false{% endif %}">
+                <i class="bi bi-bar-chart-line"></i> Reports
+                <i class="bi bi-chevron-down sb-arrow"></i>
+            </button>
+            <div class="collapse {% if '/reports/' in request.path %}show{% endif %}" id="reportsSubmenuMobile">
+                <div class="sb-submenu mb-1">
+                    <a href="{% url 'buyer_report' %}" class="sb-link">
+                        <i class="bi bi-person-lines-fill"></i> Buyer Report
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if user.is_staff %}
             <div class="sb-nav-label text-muted small uppercase fw-bold mb-2">Admin Menu</div>
             <a href="{% url 'size_manager' %}" class="sb-link mb-2">
                 <i class="bi bi-rulers"></i> Size Manager
@@ -1012,9 +1071,12 @@
                     <i class="bi bi-person-circle" style="color: #4f46e5; font-size: 1.1rem;"></i>
                     <span style="font-weight: 700; color: #1e293b; font-size: 0.85rem;">{{ user.username }}</span>
                 </div>
-                <a href="{% url 'logout' %}" class="sb-link sb-danger">
-                    <i class="bi bi-box-arrow-right"></i> Logout
-                </a>
+                <form method="post" action="{% url 'logout' %}" style="margin:0;">
+                    {% csrf_token %}
+                    <button type="submit" class="sb-link sb-danger" style="background:none;border:none;padding:0;cursor:pointer;width:100%;text-align:left;">
+                        <i class="bi bi-box-arrow-right"></i> Logout
+                    </button>
+                </form>
             </div>
             {% endif %}
         </div>

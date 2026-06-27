@@ -11,7 +11,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import F, Q, Sum
+from django.db.models import Count, F, Q, Sum
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
@@ -304,6 +304,7 @@ def login_view(request):
     return render(request, "po_sheet/login.html")
 
 
+@require_POST
 def logout_view(request):
     logout(request)
     return redirect("login")
@@ -858,7 +859,7 @@ def save_po(request):
             po.agent = data.get("agent", "")
             po.notes = data.get("notes", "")
             po.delivery_schedules = data.get("delivery_schedules", [])
-            po.po_type = data.get("po_type", "")
+            po.po_type = data.get("po_type") or "Fresh"
             po.season = data.get("season", "")
 
             po_date_str = data.get("po_date", "")
@@ -1077,6 +1078,7 @@ def new_po(request):
 
 
 @login_required
+@require_POST
 def delete_po(request, po_id):
     po = get_object_or_404(PurchaseOrder, id=po_id)
     if not request.user.is_staff and po.created_by != request.user:
@@ -1438,173 +1440,7 @@ def admin_budget(request):
     })
 
 
-@login_required
-def budget_spent_details(request):
-    if not request.user.is_staff:
-        messages.error(request, "Only admin can view budget details")
-        return redirect("po_sheet")
 
-    # Filters
-    buyer_id = request.GET.get("buyer", "").strip()
-    selected_buyer = None
-    all_buyers = Buyer.objects.order_by("name")
-    if buyer_id:
-        try:
-            selected_buyer = Buyer.objects.get(id=buyer_id)
-        except (Buyer.DoesNotExist, ValueError):
-            selected_buyer = None
-
-    season_id = request.GET.get("season", "").strip()
-    selected_season = None
-    all_seasons = Season.objects.order_by("name")
-    if season_id:
-        try:
-            selected_season = Season.objects.get(id=season_id)
-        except (Season.DoesNotExist, ValueError):
-            selected_season = None
-
-    if not selected_buyer:
-        return render(request, "po_sheet/budget_spent_details.html", {
-            "rows": [],
-            "all_buyers": all_buyers,
-            "selected_buyer": None,
-            "buyer_id": "",
-            "all_seasons": all_seasons,
-            "season_id": season_id,
-            "grand_total_approved_amount": Decimal("0.00"),
-            "grand_total_approved_quantity": 0,
-            "grand_total_spent_amount": Decimal("0.00"),
-            "grand_total_spent_quantity": 0,
-            "grand_total_balance": Decimal("0.00"),
-        })
-
-    # Fetch PO items for non-draft POs
-    po_items_qs = PurchaseOrderItem.objects.filter(purchase_order__is_draft=False).select_related("purchase_order", "subcategory")
-    po_items_qs = po_items_qs.filter(purchase_order__buyer=selected_buyer)
-    if selected_season:
-        po_items_qs = po_items_qs.filter(purchase_order__season=selected_season.name)
-
-    # We want to group PO items by subcategory
-    po_items_by_subcat = {}
-    for item in po_items_qs:
-        po_items_by_subcat.setdefault(item.subcategory_id, []).append(item)
-
-    subcat_qs = SubCategory.objects.filter(buyers=selected_buyer).prefetch_related("price_ranges").order_by("name")
-
-    rows = []
-    grand_total_approved_amount = Decimal("0.00")
-    grand_total_approved_qty = 0
-    grand_total_spent_amount = Decimal("0.00")
-    grand_total_spent_qty = 0
-    grand_total_balance = Decimal("0.00")
-
-    for sc in subcat_qs:
-        price_ranges = list(sc.price_ranges.all())  # uses prefetch cache
-        if not price_ranges:
-            price_ranges = get_or_sync_subcategory_price_ranges(sc)
-            
-        items = po_items_by_subcat.get(sc.id, [])
-
-        # Match each item to a price range based on buying price
-        range_spent_amount = {}  # range_id -> Decimal
-        range_spent_qty = {}     # range_id -> int
-        
-        unclassified_amount = Decimal("0.00")
-        unclassified_qty = 0
-
-        for item in items:
-            # We match to a price range where buying_from_range <= item.unit_price <= buying_to_range
-            matched_range = None
-            for pr in price_ranges:
-                if pr.buying_from_range <= item.unit_price <= pr.buying_to_range:
-                    matched_range = pr
-                    break
-            
-            if matched_range:
-                range_spent_amount[matched_range.id] = range_spent_amount.get(matched_range.id, Decimal("0.00")) + item.tot_amt
-                range_spent_qty[matched_range.id] = range_spent_qty.get(matched_range.id, 0) + item.tot_qty
-            else:
-                unclassified_amount += item.tot_amt
-                unclassified_qty += item.tot_qty
-
-        # Construct ranges list
-        sc_ranges_data = []
-        sc_total_approved = Decimal("0.00")
-        sc_total_approved_qty = 0
-        sc_total_spent = Decimal("0.00")
-        sc_total_spent_qty = 0
-
-        for pr in price_ranges:
-            approved_amt = pr.approved_amount or Decimal("0.00")
-            approved_q = pr.approved_quantity or 0
-            
-            spent_amt = range_spent_amount.get(pr.id, Decimal("0.00"))
-            spent_q = range_spent_qty.get(pr.id, 0)
-            
-            bal = approved_amt - spent_amt
-            
-            sc_total_approved += approved_amt
-            sc_total_approved_qty += approved_q
-            sc_total_spent += spent_amt
-            sc_total_spent_qty += spent_q
-
-            sc_ranges_data.append({
-                "sales_from": pr.sales_from_range,
-                "sales_to": pr.sales_to_range,
-                "buying_from": pr.buying_from_range,
-                "buying_to": pr.buying_to_range,
-                "approved_amount": approved_amt,
-                "approved_quantity": approved_q,
-                "spent_amount": spent_amt,
-                "spent_quantity": spent_q,
-                "balance": bal,
-            })
-
-        if unclassified_amount > 0 or unclassified_qty > 0:
-            sc_total_spent += unclassified_amount
-            sc_total_spent_qty += unclassified_qty
-            sc_ranges_data.append({
-                "is_unclassified": True,
-                "approved_amount": Decimal("0.00"),
-                "approved_quantity": 0,
-                "spent_amount": unclassified_amount,
-                "spent_quantity": unclassified_qty,
-                "balance": -unclassified_amount,
-            })
-
-        sc_balance = sc_total_approved - sc_total_spent
-        
-        grand_total_approved_amount += sc_total_approved
-        grand_total_approved_qty += sc_total_approved_qty
-        grand_total_spent_amount += sc_total_spent
-        grand_total_spent_qty += sc_total_spent_qty
-        grand_total_balance += sc_balance
-
-        rows.append({
-            "id": sc.id,
-            "name": sc.name,
-            "ranges": sc_ranges_data,
-            "total_approved_amount": sc_total_approved,
-            "total_approved_quantity": sc_total_approved_qty,
-            "total_spent_amount": sc_total_spent,
-            "total_spent_quantity": sc_total_spent_qty,
-            "balance": sc_balance,
-        })
-
-    return render(request, "po_sheet/budget_spent_details.html", {
-        "rows": rows,
-        "all_buyers": all_buyers,
-        "selected_buyer": selected_buyer,
-        "buyer_id": buyer_id,
-        "all_seasons": all_seasons,
-        "selected_season": selected_season,
-        "season_id": season_id,
-        "grand_total_approved_amount": grand_total_approved_amount,
-        "grand_total_approved_quantity": grand_total_approved_qty,
-        "grand_total_spent_amount": grand_total_spent_amount,
-        "grand_total_spent_quantity": grand_total_spent_qty,
-        "grand_total_balance": grand_total_balance,
-    })
 
 
 @login_required
@@ -1904,6 +1740,7 @@ def manage_users(request):
 
 
 @login_required
+@require_POST
 def delete_user(request, user_id):
     if not request.user.is_staff:
         messages.error(request, "Only administrators can manage users")
@@ -2133,3 +1970,350 @@ def _process_buyer_upload(ws, resync=False):
             results["errors"].append(f"Row {results['rows']+1}: {e}")
 
     return results
+
+
+# ---------------------------------------------------------------------------
+# BUYER REPORT
+# ---------------------------------------------------------------------------
+
+def _buyer_report_data(buyer_name, season_filter, date_from, date_to):
+    """Return all report data for the given filters. buyer_name='' means all buyers."""
+    pos = PurchaseOrder.objects.filter(is_draft=False)
+    if buyer_name:
+        pos = pos.filter(buyer__name=buyer_name)
+    if season_filter:
+        pos = pos.filter(season=season_filter)
+    if date_from:
+        pos = pos.filter(po_date__gte=date_from)
+    if date_to:
+        pos = pos.filter(po_date__lte=date_to)
+
+    # Summary cards
+    summary = pos.aggregate(
+        total_pos=Count('id'),
+        total_value=Sum('grand_total'),
+        total_qty=Sum('total_quantity'),
+    )
+
+    # PO list
+    po_list = list(
+        pos.select_related('buyer', 'vendor')
+           .order_by('-po_date')
+           .values(
+               'po_number', 'po_date', 'po_type',
+               'season', 'vendor__vendor_name',
+               'buyer__name', 'grand_total', 'total_quantity',
+           )
+    )
+
+    # SubCategory breakdown
+    subcat_breakdown = list(
+        PurchaseOrderItem.objects
+            .filter(purchase_order__in=pos)
+            .values('subcategory__name', 'subcategory__ch4_code')
+            .annotate(
+                total_qty=Sum('tot_qty'),
+                total_amt=Sum('tot_amt'),
+                total_items=Count('id'),
+            )
+            .order_by('-total_amt')
+    )
+
+    # Budget health subcategories
+    if buyer_name:
+        # Specific buyer — use M2M linked subcategories
+        try:
+            buyer_obj = Buyer.objects.get(name=buyer_name)
+            subcats   = buyer_obj.subcategories.all()
+        except Buyer.DoesNotExist:
+            subcats = SubCategory.objects.none()
+
+        # Fallback: if no M2M links, use subcategories actually ordered
+        if not subcats.exists():
+            ordered_ids = (
+                PurchaseOrderItem.objects
+                    .filter(purchase_order__in=pos)
+                    .values_list('subcategory_id', flat=True)
+                    .distinct()
+            )
+            subcats = SubCategory.objects.filter(id__in=ordered_ids)
+    else:
+        # All buyers — use every subcategory that has been ordered
+        ordered_ids = (
+            PurchaseOrderItem.objects
+                .filter(purchase_order__in=pos)
+                .values_list('subcategory_id', flat=True)
+                .distinct()
+        )
+        subcats = SubCategory.objects.filter(id__in=ordered_ids)
+
+    # Bulk-fetch approved and spent per subcategory (2 queries instead of 2×N)
+    approved_map = {
+        row['subcategory_id']: row['t']
+        for row in SubCategoryPriceRange.objects
+            .filter(subcategory__in=subcats)
+            .values('subcategory_id')
+            .annotate(t=Sum('approved_amount'))
+    }
+    spent_map = {
+        row['subcategory_id']: row['t']
+        for row in PurchaseOrderItem.objects
+            .filter(purchase_order__in=pos, subcategory__in=subcats)
+            .values('subcategory_id')
+            .annotate(t=Sum('tot_amt'))
+    }
+
+    budget_health = []
+    total_approved_all = 0
+    total_spent_all    = 0
+    for sc in subcats:
+        approved = float(approved_map.get(sc.id) or 0)
+        spent    = float(spent_map.get(sc.id) or 0)
+        balance  = approved - spent
+        pct      = round((spent / approved * 100), 1) if approved else 0
+        total_approved_all += approved
+        total_spent_all    += spent
+        budget_health.append({
+            'subcat':   sc.name,
+            'ch4_code': sc.ch4_code or '—',
+            'approved': approved,
+            'spent':    spent,
+            'balance':  balance,
+            'pct':      pct,
+        })
+    budget_health.sort(key=lambda x: x['pct'], reverse=True)
+
+    overall_pct = round((total_spent_all / total_approved_all * 100), 1) if total_approved_all else 0
+
+    # Chart data — raw Python lists (serialised safely in template via json_script)
+    # Chart 1: Budget Health horizontal bar
+    chart_budget_labels   = [b['subcat'] for b in budget_health]
+    chart_budget_approved = [b['approved'] for b in budget_health]
+    chart_budget_spent    = [b['spent'] for b in budget_health]
+
+    # Chart 2: SubCategory value donut
+    chart_subcat_labels = [s['subcategory__name'] or '—' for s in subcat_breakdown[:8]]
+    chart_subcat_values = [float(s['total_amt'] or 0) for s in subcat_breakdown[:8]]
+
+    # Chart 3: Vendor-wise order value — top 8 vendors from po_list
+    vendor_totals = {}
+    for po in po_list:
+        v = po['vendor__vendor_name'] or 'Unknown'
+        vendor_totals[v] = vendor_totals.get(v, 0) + float(po['grand_total'] or 0)
+    top_vendors_sorted = sorted(vendor_totals.items(), key=lambda x: x[1], reverse=True)[:8]
+    chart_vendor_labels = [v[0] for v in top_vendors_sorted]
+    chart_vendor_values = [v[1] for v in top_vendors_sorted]
+
+    return {
+        'summary':              summary,
+        'po_list':              po_list,
+        'subcat_breakdown':     subcat_breakdown,
+        'budget_health':        budget_health,
+        'total_approved':       total_approved_all,
+        'total_spent':          total_spent_all,
+        'overall_pct':          overall_pct,
+        'chart_budget_labels':  chart_budget_labels,
+        'chart_budget_approved': chart_budget_approved,
+        'chart_budget_spent':   chart_budget_spent,
+        'chart_subcat_labels':  chart_subcat_labels,
+        'chart_subcat_values':  chart_subcat_values,
+        'chart_vendor_labels':  chart_vendor_labels,
+        'chart_vendor_values':  chart_vendor_values,
+    }
+
+
+@login_required
+def buyer_report(request):
+    if not request.user.is_staff:
+        messages.error(request, "Only admin users can access reports.")
+        return redirect('po_sheet')
+    buyer_name    = request.GET.get('buyer', '')
+    season_filter = request.GET.get('season', '')
+    date_from     = request.GET.get('date_from', '')
+    date_to       = request.GET.get('date_to', '')
+
+    data = _buyer_report_data(buyer_name, season_filter, date_from, date_to)
+
+    buyers  = Buyer.objects.all().order_by('name')
+    seasons = (
+        PurchaseOrder.objects.filter(is_draft=False, season__isnull=False)
+            .exclude(season='')
+            .values_list('season', flat=True)
+            .distinct()
+            .order_by('season')
+    )
+
+    # All-buyers summary table (shown when no specific buyer is selected)
+    all_buyers_summary = []
+    if not buyer_name:
+        base_pos = PurchaseOrder.objects.filter(is_draft=False)
+        if season_filter:
+            base_pos = base_pos.filter(season=season_filter)
+        if date_from:
+            base_pos = base_pos.filter(po_date__gte=date_from)
+        if date_to:
+            base_pos = base_pos.filter(po_date__lte=date_to)
+
+        rows = list(
+            base_pos.values('buyer__name')
+                    .annotate(
+                        total_pos=Count('id'),
+                        total_value=Sum('grand_total'),
+                        total_qty=Sum('total_quantity'),
+                    )
+                    .order_by('-total_value')
+        )
+
+        # Budget per buyer
+        buyer_budget_map = {}
+        for b in Buyer.objects.prefetch_related('subcategories'):
+            approved = SubCategoryPriceRange.objects.filter(
+                subcategory__in=b.subcategories.all()
+            ).aggregate(t=Sum('approved_amount'))['t'] or 0
+            buyer_budget_map[b.name] = float(approved)
+
+        for row in rows:
+            name     = row['buyer__name'] or '—'
+            spent    = float(row['total_value'] or 0)
+            approved = buyer_budget_map.get(name, 0)
+            pct      = round((spent / approved * 100), 1) if approved else 0
+            all_buyers_summary.append({
+                'name':      name,
+                'total_pos': row['total_pos'],
+                'total_qty': row['total_qty'] or 0,
+                'spent':     spent,
+                'approved':  approved,
+                'pct':       pct,
+            })
+
+    context = {
+        **data,
+        'buyers':             buyers,
+        'seasons':            seasons,
+        'buyer_name':         buyer_name,
+        'season_filter':      season_filter,
+        'date_from':          date_from,
+        'date_to':            date_to,
+        'all_buyers_summary': all_buyers_summary,
+    }
+    return render(request, 'po_sheet/buyer_report.html', context)
+
+
+@login_required
+def export_buyer_report_excel(request):
+    if not request.user.is_staff:
+        messages.error(request, "Only admin users can export reports.")
+        return redirect('po_sheet')
+    import openpyxl
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    buyer_name    = request.GET.get('buyer', '')
+    season_filter = request.GET.get('season', '')
+    date_from     = request.GET.get('date_from', '')
+    date_to       = request.GET.get('date_to', '')
+
+    data = _buyer_report_data(buyer_name, season_filter, date_from, date_to)
+
+    wb = openpyxl.Workbook()
+
+    # ── shared styles ──────────────────────────────────────────────────────
+    hdr_font    = Font(bold=True, color='FFFFFF', size=11)
+    hdr_fill    = PatternFill('solid', fgColor='4F46E5')
+    center      = Alignment(horizontal='center', vertical='center')
+    wrap_center = Alignment(horizontal='center', vertical='center', wrap_text=True)
+
+    def style_header_row(ws, row_num, col_count):
+        for c in range(1, col_count + 1):
+            cell = ws.cell(row=row_num, column=c)
+            cell.font      = hdr_font
+            cell.fill      = hdr_fill
+            cell.alignment = wrap_center
+
+    def auto_width(ws):
+        for col in ws.columns:
+            max_len = max((len(str(cell.value or '')) for cell in col), default=10)
+            ws.column_dimensions[get_column_letter(col[0].column)].width = min(max_len + 4, 40)
+
+    # ── Sheet 1: Summary ───────────────────────────────────────────────────
+    ws1 = wb.active
+    ws1.title = 'Summary'
+    ws1.append(['Buyer Report Summary'])
+    ws1['A1'].font = Font(bold=True, size=14, color='4F46E5')
+    ws1.append([])
+    ws1.append(['Filter', 'Value'])
+    style_header_row(ws1, 3, 2)
+    ws1.append(['Buyer',        buyer_name or 'All Buyers'])
+    ws1.append(['Season',       season_filter or 'All Seasons'])
+    ws1.append(['Date From',    date_from or '—'])
+    ws1.append(['Date To',      date_to or '—'])
+    ws1.append([])
+    ws1.append(['Metric', 'Value'])
+    style_header_row(ws1, 9, 2)
+    ws1.append(['Total Submitted POs', data['summary']['total_pos'] or 0])
+    ws1.append(['Total Order Value (₹)', float(data['summary']['total_value'] or 0)])
+    ws1.append(['Total Quantity', data['summary']['total_qty'] or 0])
+    ws1.append(['Total Approved Budget (₹)', data['total_approved']])
+    ws1.append(['Total Spent (₹)', data['total_spent']])
+    ws1.append(['Budget Used (%)', data['overall_pct']])
+    auto_width(ws1)
+
+    # ── Sheet 2: Budget Health ─────────────────────────────────────────────
+    ws2 = wb.create_sheet('Budget Health')
+    headers2 = ['SubCategory', 'CH4 Code', 'Approved (₹)', 'Spent (₹)', 'Balance (₹)', '% Used', 'Status']
+    ws2.append(headers2)
+    style_header_row(ws2, 1, len(headers2))
+    green  = PatternFill('solid', fgColor='D1FAE5')
+    yellow = PatternFill('solid', fgColor='FEF3C7')
+    red    = PatternFill('solid', fgColor='FEE2E2')
+    for b in data['budget_health']:
+        status = 'Critical' if b['pct'] >= 90 else ('Watch' if b['pct'] >= 70 else 'Good')
+        row = ws2.max_row + 1
+        ws2.append([b['subcat'], b['ch4_code'], b['approved'], b['spent'], b['balance'], b['pct'], status])
+        fill = red if b['pct'] >= 90 else (yellow if b['pct'] >= 70 else green)
+        for c in range(1, 8):
+            ws2.cell(row=row, column=c).fill = fill
+    auto_width(ws2)
+
+    # ── Sheet 3: PO List ───────────────────────────────────────────────────
+    ws3 = wb.create_sheet('PO List')
+    headers3 = ['PO Number', 'Date', 'Type', 'Season', 'Buyer', 'Vendor', 'Quantity', 'Value (₹)']
+    ws3.append(headers3)
+    style_header_row(ws3, 1, len(headers3))
+    for po in data['po_list']:
+        ws3.append([
+            po['po_number'],
+            str(po['po_date']) if po['po_date'] else '',
+            po['po_type'],
+            po['season'] or '',
+            po['buyer__name'] or '',
+            po['vendor__vendor_name'] or '',
+            po['total_quantity'] or 0,
+            float(po['grand_total'] or 0),
+        ])
+    auto_width(ws3)
+
+    # ── Sheet 4: SubCategory Breakdown ────────────────────────────────────
+    ws4 = wb.create_sheet('SubCategory Breakdown')
+    headers4 = ['SubCategory', 'CH4 Code', 'Items', 'Total Qty', 'Total Amount (₹)']
+    ws4.append(headers4)
+    style_header_row(ws4, 1, len(headers4))
+    for sc in data['subcat_breakdown']:
+        ws4.append([
+            sc['subcategory__name'] or '',
+            sc['subcategory__ch4_code'] or '',
+            sc['total_items'],
+            sc['total_qty'] or 0,
+            float(sc['total_amt'] or 0),
+        ])
+    auto_width(ws4)
+
+    # ── filename & response ────────────────────────────────────────────────
+    fname = f"buyer_report_{buyer_name or 'all'}_{season_filter or 'all'}.xlsx".replace(' ', '_')
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{fname}"'
+    wb.save(response)
+    return response
+

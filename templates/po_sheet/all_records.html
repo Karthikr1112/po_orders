@@ -589,9 +589,12 @@
                 </a>
 
                 {% if user.is_staff or po.created_by == user %}
-                <a href="{% url 'delete_po' po.id %}" class="rec-btn" onclick="event.stopPropagation(); return confirm('Are you sure you want to delete Purchase Order {{ po.po_number }}?');" style="font-size: 0.72rem; padding: 0.35rem 0.7rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.35rem; text-decoration: none; background: #dc2626; color: #fff; box-shadow: 0 2px 6px rgba(220,38,38,0.25); margin-right: 0.5rem;">
-                    <i class="bi bi-trash3-fill"></i> Delete
-                </a>
+                <form method="post" action="{% url 'delete_po' po.id %}" style="display:inline;" onsubmit="event.stopPropagation(); return confirm('Are you sure you want to delete Purchase Order {{ po.po_number }}?');">
+                    {% csrf_token %}
+                    <button type="submit" class="rec-btn" style="font-size: 0.72rem; padding: 0.35rem 0.7rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.35rem; background: #dc2626; color: #fff; box-shadow: 0 2px 6px rgba(220,38,38,0.25); margin-right: 0.5rem; border: none; cursor: pointer;">
+                        <i class="bi bi-trash3-fill"></i> Delete
+                    </button>
+                </form>
                 {% endif %}
 
                 <i class="bi bi-chevron-down rec-chevron"></i>
