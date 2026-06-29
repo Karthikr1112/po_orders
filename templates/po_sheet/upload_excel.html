@@ -160,11 +160,18 @@
             {% if results and upload_type == "buyer" %}
             <div class="mt-4 border-top pt-3">
                 <h6 class="fw-bold mb-3 text-dark">Upload Results</h6>
+                <p class="text-muted small mb-2">Rows read: <strong>{{ results.rows }}</strong></p>
+                <div class="fw-semibold small text-secondary mb-2">SubCategories</div>
                 <div class="row text-center g-3 mb-3">
-                    <div class="col-6 col-md-3"><div class="p-3 rounded" style="background:#f0fdf4;border:1px solid #bbf7d0;"><div class="fw-bold fs-4 text-success">{{ results.created }}</div><div class="small text-muted">Linked</div></div></div>
-                    <div class="col-6 col-md-3"><div class="p-3 rounded" style="background:#f8fafc;border:1px solid #e2e8f0;"><div class="fw-bold fs-4 text-secondary">{{ results.skipped }}</div><div class="small text-muted">Skipped</div></div></div>
-                    <div class="col-6 col-md-3"><div class="p-3 rounded" style="background:#fffbeb;border:1px solid #fde68a;"><div class="fw-bold fs-4 text-warning">{{ results.no_buyer }}</div><div class="small text-muted">No Buyer</div></div></div>
+                    <div class="col-6 col-md-3"><div class="p-3 rounded" style="background:#f0fdf4;border:1px solid #bbf7d0;"><div class="fw-bold fs-4 text-success">{{ results.sc_created }}</div><div class="small text-muted">New SubCat</div></div></div>
+                    <div class="col-6 col-md-3"><div class="p-3 rounded" style="background:#f8fafc;border:1px solid #e2e8f0;"><div class="fw-bold fs-4 text-secondary">{{ results.sc_existing }}</div><div class="small text-muted">Already Existed</div></div></div>
+                    <div class="col-6 col-md-3"><div class="p-3 rounded" style="background:#fffbeb;border:1px solid #fde68a;"><div class="fw-bold fs-4 text-warning">{{ results.no_buyer }}</div><div class="small text-muted">No Buyer (saved)</div></div></div>
                     <div class="col-6 col-md-3"><div class="p-3 rounded" style="background:#fef2f2;border:1px solid #fecaca;"><div class="fw-bold fs-4 text-danger">{{ results.errors|length }}</div><div class="small text-muted">Errors</div></div></div>
+                </div>
+                <div class="fw-semibold small text-secondary mb-2">Buyer Links</div>
+                <div class="row text-center g-3 mb-3">
+                    <div class="col-6 col-md-3"><div class="p-3 rounded" style="background:#eff6ff;border:1px solid #bfdbfe;"><div class="fw-bold fs-4 text-primary">{{ results.linked }}</div><div class="small text-muted">Linked</div></div></div>
+                    <div class="col-6 col-md-3"><div class="p-3 rounded" style="background:#f8fafc;border:1px solid #e2e8f0;"><div class="fw-bold fs-4 text-secondary">{{ results.skipped }}</div><div class="small text-muted">Already Linked</div></div></div>
                 </div>
                 {% if results.errors %}
                 <div class="alert alert-danger py-2" style="font-size:0.82rem; max-height:160px; overflow-y:auto;">

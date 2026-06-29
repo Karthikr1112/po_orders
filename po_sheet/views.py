@@ -4,7 +4,6 @@ import logging
 import re
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
-
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -257,7 +256,7 @@ def get_subcategory_remaining_budget(subcategory, exclude_po_id=None, include_dr
 
 def generate_next_po_number():
     last = (
-        PurchaseOrder.objects.filter(po_number__regex=r"^PO-\d+$")
+        PurchaseOrder.objects.filter(po_number__startswith="PO-")
         .order_by("-id")
         .values_list("po_number", flat=True)
         .first()
@@ -873,6 +872,13 @@ def save_po(request):
 
             items_data = data.get("items", [])
 
+            # --- Pre-fetch all needed subcategories + price ranges (2 queries) ---
+            subcat_ids = [item.get("subcategory_id") for item in items_data if item.get("subcategory_id")]
+            subcat_map = {sc.id: sc for sc in SubCategory.objects.filter(id__in=subcat_ids)}
+            ranges_map = {}  # subcat_id -> [price_range_objs]
+            for pr in SubCategoryPriceRange.objects.filter(subcategory_id__in=subcat_ids):
+                ranges_map.setdefault(pr.subcategory_id, []).append(pr)
+
             # --- Validate Admin Budget / Qty Limits per Price Range ---
             base_items = PurchaseOrderItem.objects.filter(purchase_order__is_draft=False)
             if po.buyer:
@@ -880,17 +886,15 @@ def save_po(request):
             if po.season:
                 base_items = base_items.filter(purchase_order__season=po.season)
 
-
-
             proposed_totals = {}
             for item in items_data:
                 subcat_id = item.get("subcategory_id")
                 if not subcat_id:
                     continue
-                try:
-                    subcat = SubCategory.objects.get(id=subcat_id)
-                except (SubCategory.DoesNotExist, ValueError, TypeError):
+                subcat = subcat_map.get(subcat_id)
+                if not subcat:
                     subcat, _ = SubCategory.objects.get_or_create(name=str(subcat_id))
+                    subcat_map[subcat_id] = subcat
 
                 unit_price = Decimal(str(item.get("unit_price", 0)))
                 qty = int(item.get("order_qty", 0))
@@ -898,9 +902,10 @@ def save_po(request):
                 discount_factor = Decimal("1") - (discount_percentage / Decimal("100"))
                 tot_amt = unit_price * Decimal(qty) * discount_factor
 
-                price_ranges = list(subcat.price_ranges.all())
+                price_ranges = ranges_map.get(subcat.id, [])
                 if not price_ranges:
                     price_ranges = get_or_sync_subcategory_price_ranges(subcat)
+                    ranges_map[subcat.id] = price_ranges
 
                 matched_range = None
                 for pr in price_ranges:
@@ -936,23 +941,31 @@ def save_po(request):
                 proposed_totals[key]["qty"] += qty
                 proposed_totals[key]["amount"] += tot_amt
 
+            # --- Bulk-fetch all spent amounts in ONE query ---
+            from django.db.models import Case, When, DecimalField as DField
+            spent_data = {}
+            if proposed_totals:
+                from django.db.models import Q
+                q = Q()
+                for (subcat_id, _), info in proposed_totals.items():
+                    pr = info["range_obj"]
+                    q |= Q(subcategory_id=subcat_id, unit_price__gte=pr.buying_from_range, unit_price__lte=pr.buying_to_range)
+                for row in (base_items.filter(q)
+                            .values('subcategory_id', 'unit_price')
+                            .annotate(s_amt=Sum('tot_amt'), s_qty=Sum('tot_qty'))):
+                    spent_data.setdefault(row['subcategory_id'], []).append(row)
+
             for (subcat_id, range_id), info in proposed_totals.items():
                 pr = info["range_obj"]
                 subcat_name = info["subcategory_name"]
                 range_str = info["range_str"]
 
-                submitted_qs = base_items.filter(
-                    subcategory_id=subcat_id,
-                    unit_price__gte=pr.buying_from_range,
-                    unit_price__lte=pr.buying_to_range,
-                )
-
-                agg_spent = submitted_qs.aggregate(
-                    spent_amt=Sum("tot_amt"),
-                    spent_qty=Sum("tot_qty")
-                )
-                spent_amt = agg_spent["spent_amt"] or Decimal("0.00")
-                spent_qty = agg_spent["spent_qty"] or 0
+                spent_amt = Decimal("0.00")
+                spent_qty = 0
+                for row in spent_data.get(subcat_id, []):
+                    if pr.buying_from_range <= row['unit_price'] <= pr.buying_to_range:
+                        spent_amt += row['s_amt'] or Decimal("0.00")
+                        spent_qty += row['s_qty'] or 0
 
                 approved_amt = info["approved_amount"]
                 approved_qty = info["approved_quantity"]
@@ -988,25 +1001,28 @@ def save_po(request):
                     subcat_id = item.get("subcategory_id")
                     if not subcat_id:
                         continue
-                    try:
-                        subcat = SubCategory.objects.get(id=subcat_id)
-                    except (SubCategory.DoesNotExist, ValueError, TypeError):
+                    subcat = subcat_map.get(subcat_id)
+                    if not subcat:
                         subcat, _ = SubCategory.objects.get_or_create(name=str(subcat_id))
+                        subcat_map[subcat_id] = subcat
 
-                    po_item = PurchaseOrderItem(
+                    unit_price = Decimal(str(item.get("unit_price", 0)))
+                    order_qty  = int(item.get("order_qty", 0))
+                    discount_pct = Decimal(str(item.get("discount_percentage", 0)))
+                    discount_factor = Decimal("1") - (discount_pct / Decimal("100"))
+                    new_items.append(PurchaseOrderItem(
                         purchase_order=po,
                         subcategory=subcat,
-                        unit_price=Decimal(str(item.get("unit_price", 0))),
-                        order_qty=int(item.get("order_qty", 0)),
-                        discount_percentage=Decimal(str(item.get("discount_percentage", 0))),
+                        unit_price=unit_price,
+                        order_qty=order_qty,
+                        discount_percentage=discount_pct,
                         item_type=item.get("item_type", "Fresh"),
                         size_allocations=item.get("size_allocations", {}),
-                    )
-                    # Call model's save() so tot_qty/tot_amt are computed
-                    po_item.save()
-                    new_items.append(po_item)
+                        tot_qty=order_qty,
+                        tot_amt=unit_price * Decimal(order_qty) * discount_factor,
+                    ))
+                PurchaseOrderItem.objects.bulk_create(new_items)
             finally:
-                # Always reconnect — even if an exception occurred
                 post_save.connect(update_po_totals_on_item_save, sender=PurchaseOrderItem)
                 post_delete.connect(update_po_totals_on_item_delete, sender=PurchaseOrderItem)
 
@@ -1409,7 +1425,6 @@ def admin_budget(request):
                 "spent_quantity": r.spent_quantity,
                 "balance": float(r.balance),
             })
-        import json
         price_ranges_json = json.dumps(ranges_list)
 
         rows.append({
@@ -1429,6 +1444,7 @@ def admin_budget(request):
     page_obj = paginator.get_page(request.GET.get("page"))
     return render(request, "po_sheet/admin_budget.html", {
         "subcategories": page_obj.object_list,
+        "all_subcats_dropdown": [{"id": r["id"], "name": r["name"]} for r in rows],
         "page_obj": page_obj,
         "total_budgeted_count": paginator.count,
         "all_buyers": all_buyers,
@@ -1802,172 +1818,286 @@ def upload_excel(request):
 
 
 def _process_price_range_upload(ws, user):
-    """
-    Expected columns (row 1 = header):
-    SubCategory Name | SubCategory Code | Buyer | Sales From | Sales To | Buying From | Buying To | Approved Budget | Approved Qty
-    """
     results = {"created": 0, "updated": 0, "skipped": 0, "errors": [], "rows": 0}
 
     headers = [str(c.value).strip().lower() if c.value else "" for c in next(ws.iter_rows(min_row=1, max_row=1))]
 
-    def col(row, name_variants):
-        for variant in name_variants:
+    def col(row, variants):
+        for v in variants:
             for i, h in enumerate(headers):
-                if variant in h:
-                    v = row[i].value
-                    return v
+                if v in h:
+                    return row[i].value
         return None
 
+    # ── Pass 1: parse all rows into memory ──────────────────────────────────
+    parsed = []
     for row in ws.iter_rows(min_row=2, values_only=False):
         if all(c.value is None for c in row):
             continue
         results["rows"] += 1
         row_num = row[0].row
         try:
-            subcat_name = str(col(row, ["subcategory name", "subcategory", "sub category", "name"])).strip() if col(row, ["subcategory name", "subcategory", "sub category", "name"]) else ""
-            subcat_code_val = str(col(row, ["subcategory code", "subcat code", "code", "ch4"])).strip() if col(row, ["subcategory code", "subcat code", "code", "ch4"]) else ""
-            buyer_name = str(col(row, ["buyer"])).strip() if col(row, ["buyer"]) else ""
-
-            sales_from = col(row, ["sales from", "sale from"])
-            sales_to   = col(row, ["sales to",   "sale to"])
-            buying_from = col(row, ["buying from", "buy from"])
-            buying_to   = col(row, ["buying to",   "buy to"])
-            approved_budget = col(row, ["approved budget", "budget", "approved amount"])
-            approved_qty    = col(row, ["approved qty", "quantity", "qty"])
-
+            subcat_name = str(col(row, ["subcategory name", "subcategory", "sub category", "name"]) or "").strip()
+            sc_code_val = str(col(row, ["subcategory code", "subcat code", "code", "ch4"]) or "").strip()
+            buyer_name  = str(col(row, ["buyer"]) or "").strip()
             if not subcat_name or subcat_name.lower() == "none":
                 results["errors"].append(f"Row {row_num}: Missing subcategory name")
                 continue
+            sc_code = sc_code_val if sc_code_val and sc_code_val.lower() != "none" else None
+            parsed.append((
+                row_num, subcat_name, sc_code, buyer_name,
+                Decimal(str(col(row, ["sales from", "sale from"]) or 0)),
+                Decimal(str(col(row, ["sales to",   "sale to"])   or 0)),
+                Decimal(str(col(row, ["buying from", "buy from"]) or 0)),
+                Decimal(str(col(row, ["buying to",   "buy to"])   or 0)),
+                Decimal(str(col(row, ["approved budget", "budget", "approved amount"]) or 0)),
+                int(col(row, ["approved qty", "quantity", "qty"]) or 0),
+            ))
+        except Exception as e:
+            results["errors"].append(f"Row {row_num}: {e}")
 
-            # Find or create subcategory
-            sc = None
-            if subcat_code_val and subcat_code_val.lower() != "none":
-                sc = SubCategory.objects.filter(ch4_code=subcat_code_val).first()
+    # ── Pass 2: pre-fetch everything (3 queries) ────────────────────────────
+    subcat_by_name = {s.name: s for s in SubCategory.objects.all()}
+    subcat_by_code = {s.ch4_code: s for s in subcat_by_name.values() if s.ch4_code}
+    buyer_by_name  = {b.name: b for b in Buyer.objects.all()}
+
+    # ── Pass 3: collect new subcategories / buyers ──────────────────────────
+    new_sc_map, new_b_map = {}, {}
+    for _, subcat_name, sc_code, buyer_name, *_ in parsed:
+        sc = subcat_by_code.get(sc_code) if sc_code else None
+        if not sc:
+            sc = subcat_by_name.get(subcat_name)
+        if not sc and subcat_name not in new_sc_map:
+            new_sc_map[subcat_name] = SubCategory(name=subcat_name, ch4_code=sc_code)
+        if buyer_name and buyer_name.lower() != "none" and buyer_name not in buyer_by_name and buyer_name not in new_b_map:
+            new_b_map[buyer_name] = Buyer(name=buyer_name)
+
+    if new_sc_map:
+        SubCategory.objects.bulk_create(list(new_sc_map.values()), ignore_conflicts=True)
+        for s in SubCategory.objects.filter(name__in=new_sc_map):
+            subcat_by_name[s.name] = s
+            if s.ch4_code:
+                subcat_by_code[s.ch4_code] = s
+        # iexact fallback: handles case mismatch (e.g. DB has "Laptop", Excel has "laptop")
+        for name in new_sc_map:
+            if name not in subcat_by_name:
+                s = SubCategory.objects.filter(name__iexact=name).first()
+                if s:
+                    subcat_by_name[name] = s
+                    if s.ch4_code:
+                        subcat_by_code[s.ch4_code] = s
+    if new_b_map:
+        Buyer.objects.bulk_create(list(new_b_map.values()), ignore_conflicts=True)
+        for b in Buyer.objects.filter(name__in=new_b_map):
+            buyer_by_name[b.name] = b
+        for name in new_b_map:
+            if name not in buyer_by_name:
+                b = Buyer.objects.filter(name__iexact=name).first()
+                if b:
+                    buyer_by_name[name] = b
+
+    # ── Pass 4: build M2M + price-range batches ─────────────────────────────
+    ThroughModel   = SubCategory.buyers.through
+    existing_links = set(ThroughModel.objects.values_list('subcategory_id', 'buyer_id'))
+    existing_ranges = {
+        (pr.subcategory_id, pr.sales_from_range, pr.sales_to_range): pr
+        for pr in SubCategoryPriceRange.objects.all()
+    }
+
+    new_links, to_create, to_update, sc_code_updates = [], [], [], []
+
+    for row_num, subcat_name, sc_code, buyer_name, sf, st, bf, bt, ab, aq in parsed:
+        try:
+            sc = subcat_by_code.get(sc_code) if sc_code else None
             if not sc:
-                sc, created = SubCategory.objects.get_or_create(
-                    name=subcat_name,
-                    defaults={"ch4_code": subcat_code_val or None}
-                )
-                if not created and subcat_code_val and subcat_code_val.lower() != "none" and not sc.ch4_code:
-                    sc.ch4_code = subcat_code_val
-                    sc.save(update_fields=["ch4_code"])
+                sc = subcat_by_name.get(subcat_name)
+            if not sc:
+                sc = SubCategory.objects.filter(name__iexact=subcat_name).first()
+                if sc:
+                    subcat_by_name[subcat_name] = sc
+            if not sc:
+                results["errors"].append(f"Row {row_num}: SubCategory not found: {subcat_name}")
+                continue
 
-            # Link buyer if provided
+            if sc_code and not sc.ch4_code:
+                sc.ch4_code = sc_code
+                sc_code_updates.append(sc)
+
             if buyer_name and buyer_name.lower() != "none":
-                buyer_obj, _ = Buyer.objects.get_or_create(name=buyer_name)
-                sc.buyers.add(buyer_obj)
+                b = buyer_by_name.get(buyer_name)
+                if b:
+                    lk = (sc.id, b.id)
+                    if lk not in existing_links:
+                        new_links.append(ThroughModel(subcategory_id=sc.id, buyer_id=b.id))
+                        existing_links.add(lk)
 
-            # Build field values
-            sf = Decimal(str(sales_from or 0))
-            st = Decimal(str(sales_to or 0))
-            bf = Decimal(str(buying_from or 0))
-            bt = Decimal(str(buying_to or 0))
-            ab = Decimal(str(approved_budget or 0))
-            aq = int(approved_qty or 0)
-
-            # Upsert price range
-            existing = SubCategoryPriceRange.objects.filter(
-                subcategory=sc,
-                sales_from_range=sf,
-                sales_to_range=st,
-            ).first()
-
-            sc_code_for_range = subcat_code_val if subcat_code_val and subcat_code_val.lower() != "none" else None
-
-            if existing:
-                changed = (
-                    existing.buying_from_range != bf or
-                    existing.buying_to_range   != bt or
-                    existing.approved_amount   != ab or
-                    existing.approved_quantity != aq or
-                    (sc_code_for_range and existing.subcat_code != sc_code_for_range)
-                )
-                if changed:
-                    existing.buying_from_range = bf
-                    existing.buying_to_range   = bt
-                    existing.approved_amount   = ab
-                    existing.approved_quantity = aq
-                    if sc_code_for_range:
-                        existing.subcat_code = sc_code_for_range
-                    existing.save()
+            rk = (sc.id, sf, st)
+            pr = existing_ranges.get(rk)
+            if pr:
+                if any([pr.buying_from_range != bf, pr.buying_to_range != bt,
+                        pr.approved_amount != ab, pr.approved_quantity != aq,
+                        sc_code and pr.subcat_code != sc_code]):
+                    pr.buying_from_range = bf; pr.buying_to_range = bt
+                    pr.approved_amount = ab;   pr.approved_quantity = aq
+                    if sc_code:
+                        pr.subcat_code = sc_code
+                    to_update.append(pr)
                     results["updated"] += 1
                 else:
                     results["skipped"] += 1
             else:
-                SubCategoryPriceRange.objects.create(
-                    subcategory=sc,
-                    sales_from_range=sf,
-                    sales_to_range=st,
-                    buying_from_range=bf,
-                    buying_to_range=bt,
-                    approved_amount=ab,
-                    approved_quantity=aq,
-                    subcat_code=sc_code_for_range,
+                new_pr = SubCategoryPriceRange(
+                    subcategory=sc, sales_from_range=sf, sales_to_range=st,
+                    buying_from_range=bf, buying_to_range=bt,
+                    approved_amount=ab, approved_quantity=aq, subcat_code=sc_code,
                 )
+                to_create.append(new_pr)
+                existing_ranges[rk] = new_pr
                 results["created"] += 1
-
         except Exception as e:
             results["errors"].append(f"Row {row_num}: {e}")
 
+    # ── Pass 5: one bulk write per table ────────────────────────────────────
+    if sc_code_updates:
+        SubCategory.objects.bulk_update(sc_code_updates, ['ch4_code'])
+    if new_links:
+        ThroughModel.objects.bulk_create(new_links, ignore_conflicts=True)
+    if to_create:
+        SubCategoryPriceRange.objects.bulk_create(to_create, ignore_conflicts=True)
+    if to_update:
+        SubCategoryPriceRange.objects.bulk_update(
+            to_update, ['buying_from_range', 'buying_to_range', 'approved_amount', 'approved_quantity', 'subcat_code']
+        )
     return results
 
 
 def _process_buyer_upload(ws, resync=False):
-    """
-    Expected columns: SubCategory | SubCateCode | PGR | TVM Buyer
-    Same format as buyer.xlsx.
-    resync=True clears all existing buyer links before importing.
-    """
-    results = {"created": 0, "updated": 0, "skipped": 0, "no_buyer": 0, "errors": [], "rows": 0}
+    results = {"sc_created": 0, "sc_existing": 0, "linked": 0, "no_buyer": 0, "skipped": 0, "errors": [], "rows": 0}
 
     if resync:
         SubCategory.buyers.through.objects.all().delete()
 
-    seen = set()
+    # ── Detect columns from header row ──────────────────────────────────────
+    header_row = [str(c).strip().lower() if c is not None else "" for c in next(ws.iter_rows(min_row=1, max_row=1, values_only=True))]
+
+    def find_col(keywords, default):
+        for i, h in enumerate(header_row):
+            if any(k in h for k in keywords):
+                return i
+        return default
+
+    subcat_col_idx = find_col(["subcategory", "sub category", "sub-category", "name"], 0)
+    code_col_idx   = find_col(["code", "ch4", "subcat code", "subcatecode"], 1)
+    buyer_col_idx  = find_col(["buyer"], 3)
+
+    # ── Pass 1: parse rows ───────────────────────────────────────────────────
+    # sc_seen deduplicates subcategory names (for SubCategory creation)
+    # link_seen deduplicates (subcat, buyer) pairs (for M2M link creation)
+    sc_seen, link_seen, sc_rows, link_rows = set(), set(), [], []
     for row in ws.iter_rows(min_row=2, values_only=True):
         if all(v is None for v in row):
             continue
         results["rows"] += 1
-        try:
-            subcat_name = str(row[0]).strip() if row[0] else ""
-            subcat_code = str(row[1]).strip() if len(row) > 1 and row[1] is not None else ""
-            raw_buyer   = row[3] if len(row) > 3 else None
-            buyer_name  = str(raw_buyer).strip() if raw_buyer and str(raw_buyer).strip() not in ("0", "") else ""
+        subcat_name = str(row[subcat_col_idx]).strip() if len(row) > subcat_col_idx and row[subcat_col_idx] else ""
+        subcat_code = str(row[code_col_idx]).strip() if len(row) > code_col_idx and row[code_col_idx] is not None else ""
+        raw_buyer   = row[buyer_col_idx] if len(row) > buyer_col_idx else None
+        buyer_name  = str(raw_buyer).strip() if raw_buyer and str(raw_buyer).strip() not in ("0", "") else ""
+        if not subcat_name:
+            results["errors"].append(f"Row {results['rows']}: Missing subcategory name")
+            continue
+        # Always collect unique subcategory names — buyer presence doesn't matter
+        if subcat_name not in sc_seen:
+            sc_seen.add(subcat_name)
+            sc_rows.append((subcat_name, subcat_code))
+        # Collect unique (subcat, buyer) pairs for M2M links
+        if buyer_name:
+            lk_key = (subcat_name, buyer_name)
+            if lk_key not in link_seen:
+                link_seen.add(lk_key)
+                link_rows.append((subcat_name, buyer_name))
+        else:
+            results["no_buyer"] += 1
 
-            if not subcat_name:
-                results["errors"].append(f"Row {results['rows']+1}: Missing subcategory name")
-                continue
+    # ── Pass 2: pre-fetch (2 queries) ───────────────────────────────────────
+    all_sc = list(SubCategory.objects.all())
+    subcat_by_name = {s.name: s for s in all_sc}
+    subcat_by_code = {s.ch4_code: s for s in all_sc if s.ch4_code}
+    buyer_by_name  = {b.name: b for b in Buyer.objects.all()}
 
-            # Skip duplicate (subcat, buyer) pairs in same file
-            key = (subcat_name, buyer_name)
-            if key in seen:
-                results["skipped"] += 1
-                continue
-            seen.add(key)
-
-            # Always upsert the subcategory
-            sc, sc_created = SubCategory.objects.get_or_create(
-                name=subcat_name,
-                defaults={"ch4_code": subcat_code or None}
-            )
-            if not sc_created and subcat_code and sc.ch4_code != subcat_code:
+    # ── Pass 3: create all subcategories (always, regardless of buyer) ───────
+    new_sc_map, sc_code_updates = {}, []
+    for subcat_name, subcat_code in sc_rows:
+        # Primary check: by code (if code present)
+        sc = subcat_by_code.get(subcat_code) if subcat_code else None
+        if not sc:
+            # Fallback: by name — prevents re-creating existing subcategory
+            # Also updates the code in DB so future uploads find it by code
+            sc = subcat_by_name.get(subcat_name)
+            if sc and subcat_code and sc.ch4_code != subcat_code:
                 sc.ch4_code = subcat_code
-                sc.save(update_fields=["ch4_code"])
-                results["updated"] += 1
+                sc_code_updates.append(sc)
+                subcat_by_code[subcat_code] = sc
+        if sc:
+            results["sc_existing"] += 1
+            subcat_by_name[subcat_name] = sc
+        else:
+            if subcat_name not in new_sc_map:
+                new_sc_map[subcat_name] = SubCategory(name=subcat_name, ch4_code=subcat_code or None)
 
-            # Link buyer only when a real name exists
-            if buyer_name:
-                buyer_obj, _ = Buyer.objects.get_or_create(name=buyer_name)
-                if not sc.buyers.filter(id=buyer_obj.id).exists():
-                    sc.buyers.add(buyer_obj)
-                    results["created"] += 1
-                else:
-                    results["skipped"] += 1
-            else:
-                results["no_buyer"] += 1
+    # Collect new buyers
+    new_b_map = {}
+    for subcat_name, buyer_name in link_rows:
+        if buyer_name not in buyer_by_name and buyer_name not in new_b_map:
+            new_b_map[buyer_name] = Buyer(name=buyer_name)
 
-        except Exception as e:
-            results["errors"].append(f"Row {results['rows']+1}: {e}")
+    if new_sc_map:
+        SubCategory.objects.bulk_create(list(new_sc_map.values()), ignore_conflicts=True)
+        for s in SubCategory.objects.filter(name__in=new_sc_map):
+            subcat_by_name[s.name] = s
+            if s.ch4_code:
+                subcat_by_code[s.ch4_code] = s
+        for name in new_sc_map:
+            if name not in subcat_by_name:
+                s = SubCategory.objects.filter(name__iexact=name).first()
+                if s:
+                    subcat_by_name[name] = s
+        results["sc_created"] = len(new_sc_map)
+    if sc_code_updates:
+        SubCategory.objects.bulk_update(sc_code_updates, ['ch4_code'])
+    if new_b_map:
+        Buyer.objects.bulk_create(list(new_b_map.values()), ignore_conflicts=True)
+        for b in Buyer.objects.filter(name__in=new_b_map):
+            buyer_by_name[b.name] = b
+        for name in new_b_map:
+            if name not in buyer_by_name:
+                b = Buyer.objects.filter(name__iexact=name).first()
+                if b:
+                    buyer_by_name[name] = b
+
+    # ── Pass 4: bulk M2M links ───────────────────────────────────────────────
+    ThroughModel   = SubCategory.buyers.through
+    existing_links = set(ThroughModel.objects.values_list('subcategory_id', 'buyer_id'))
+    new_links = []
+    for subcat_name, buyer_name in link_rows:
+        sc = subcat_by_name.get(subcat_name)
+        if not sc:
+            sc = SubCategory.objects.filter(name__iexact=subcat_name).first()
+        b  = buyer_by_name.get(buyer_name)
+        if not b:
+            b = Buyer.objects.filter(name__iexact=buyer_name).first()
+        if not sc or not b:
+            results["errors"].append(f"Could not resolve: {subcat_name!r} / {buyer_name!r}")
+            continue
+        lk = (sc.id, b.id)
+        if lk not in existing_links:
+            new_links.append(ThroughModel(subcategory_id=sc.id, buyer_id=b.id))
+            existing_links.add(lk)
+            results["linked"] += 1
+        else:
+            results["skipped"] += 1
+
+    if new_links:
+        ThroughModel.objects.bulk_create(new_links, ignore_conflicts=True)
 
     return results
 
@@ -2164,13 +2294,14 @@ def buyer_report(request):
                     .order_by('-total_value')
         )
 
-        # Budget per buyer
-        buyer_budget_map = {}
-        for b in Buyer.objects.prefetch_related('subcategories'):
-            approved = SubCategoryPriceRange.objects.filter(
-                subcategory__in=b.subcategories.all()
-            ).aggregate(t=Sum('approved_amount'))['t'] or 0
-            buyer_budget_map[b.name] = float(approved)
+        # Budget per buyer — single query via JOIN instead of N+1
+        buyer_budget_map = {
+            row['subcategory__buyers__name']: float(row['t'] or 0)
+            for row in SubCategoryPriceRange.objects
+                .filter(subcategory__buyers__isnull=False)
+                .values('subcategory__buyers__name')
+                .annotate(t=Sum('approved_amount'))
+        }
 
         for row in rows:
             name     = row['buyer__name'] or '—'

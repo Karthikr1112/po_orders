@@ -713,6 +713,15 @@
 
 {% block extra_scripts %}
 <script>
+    const URLS = {
+        searchVendor:        "{% url 'search_vendor' %}",
+        searchSubcategory:   "{% url 'search_subcategory' %}",
+        subcategoryRanges:   "{% url 'get_subcategory_ranges' '__ID__' %}",
+        subcategorySizes:    "{% url 'get_subcategory_sizes' '__ID__' %}",
+        updatePoFields:      "{% url 'update_po_fields' %}",
+        savePo:              "{% url 'save_po' %}",
+    };
+
     let isPoLocked = false;
     let initialSchedules = {{ schedules_json|safe }};
 
@@ -1192,7 +1201,7 @@
                 }
                 // Fetch buying price ranges for this subcategory
                 let p = $.ajax({
-                    url: '/get-subcategory-ranges/' + encodeURIComponent(val) + '/',
+                    url: URLS.subcategoryRanges.replace('__ID__', encodeURIComponent(val)),
                     method: 'GET',
                     success: function(res) {
                         row.data('price-ranges', (res.success && res.ranges) ? res.ranges : []);
@@ -1224,7 +1233,7 @@
             dropdown.html('<div class="p-2 text-muted small"><i class="bi bi-hourglass-split me-1"></i>Searching...</div>').removeClass('d-none');
             
             vendorXhr = $.ajax({
-                url: '/search-vendor/',
+                url: URLS.searchVendor,
                 method: 'GET',
                 data: { q: query },
                 success: function(res) {
@@ -1272,7 +1281,7 @@
             dropdown.html('<div class="p-2 text-muted small"><i class="bi bi-hourglass-split me-1"></i>Searching...</div>').removeClass('d-none');
 
             subcatXhr = $.ajax({
-                url: '/search-subcategory/',
+                url: URLS.searchSubcategory,
                 method: 'GET',
                 data: { q: query, buyer: buyerId },
                 success: function(res) {
@@ -1407,7 +1416,7 @@
             if (subcatId) {
                 // Fetch price ranges with approved/spent budgets and store on the row
                 $.ajax({
-                    url: '/get-subcategory-ranges/' + encodeURIComponent(subcatId) + '/',
+                    url: URLS.subcategoryRanges.replace('__ID__', encodeURIComponent(subcatId)),
                     method: 'GET',
                     success: function(res) {
                         if (res.success && res.ranges) {
@@ -1422,7 +1431,7 @@
                 });
 
                 $.ajax({
-                    url: '/get-subcategory-sizes/' + encodeURIComponent(subcatId) + '/',
+                    url: URLS.subcategorySizes.replace('__ID__', encodeURIComponent(subcatId)),
                     method: 'GET',
                     success: function(res) {
                         if (res.success && res.sizes && res.sizes.length > 0) {
@@ -1467,7 +1476,7 @@
             let data = {};
             data[field] = value;
             $.ajax({
-                url: '/update-po-fields/',
+                url: URLS.updatePoFields,
                 method: 'POST',
                 headers: { 'X-CSRFToken': getCookie('csrftoken') },
                 contentType: 'application/json',
@@ -1537,7 +1546,7 @@
             showLoading();
 
             $.ajax({
-                url: '/save-po/',
+                url: URLS.savePo,
                 method: 'POST',
                 headers: { 'X-CSRFToken': getCookie('csrftoken') },
                 contentType: 'application/json',
@@ -1722,7 +1731,7 @@
                     return;
                 }
                 $.ajax({
-                    url: '/get-subcategory-sizes/' + encodeURIComponent(subcatId) + '/',
+                    url: URLS.subcategorySizes.replace('__ID__', encodeURIComponent(subcatId)),
                     method: 'GET',
                     success: function(res) {
                         if (res.success && res.sizes && res.sizes.length > 0) {

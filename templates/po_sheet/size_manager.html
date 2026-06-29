@@ -776,6 +776,12 @@
 
 {% block extra_scripts %}
 <script>
+const URLS = {
+    searchSubcategory: "{% url 'search_subcategory' %}",
+    subcategorySizes:  "{% url 'get_subcategory_sizes' '__ID__' %}",
+    addSubcategorySizes: "{% url 'add_subcategory_sizes' %}",
+    removeSubcategorySize: "{% url 'remove_subcategory_size' %}",
+};
 const CSRF = (()=>{
     const m = document.cookie.match(/csrftoken=([^;]+)/);
     return m ? m[1] : '';
@@ -922,7 +928,7 @@ function searchSubcats(q) {
     dd.style.display = 'block';
 
     xhrSc = $.ajax({
-        url: '/search-subcategory/',
+        url: URLS.searchSubcategory,
         data: { q },
         success(res) {
             const items = (res.subcategories || []).slice(0, 12);

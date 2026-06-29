@@ -20,7 +20,7 @@
         color: #1e293b;
         font-size: 0.95rem;
     }
-    .luxury-card-body { padding: 20px; }
+    .luxury-card-body { padding: 20px; overflow: visible; }
 
     .sheet-table { width: 100%; border-collapse: separate; border-spacing: 0; }
     .sheet-table th {
@@ -259,7 +259,7 @@
     <!-- MAIN TABLE -->
     {% if selected_buyer %}
     <!-- SUBCATEGORY SELECT DROPDOWN -->
-    <div class="luxury-card mb-4">
+    <div class="luxury-card mb-4" style="overflow: visible;">
         <div class="luxury-card-header d-flex justify-content-between align-items-center">
             <span>
                 <i class="bi bi-tag-fill me-2 text-indigo"></i>
@@ -269,14 +269,20 @@
         </div>
         <div class="luxury-card-body">
             <div class="row align-items-center">
-                <div class="col-12 col-md-6 col-lg-4">
-                    <label for="subcatSelect" class="form-label fw-bold text-muted small text-uppercase mb-2">Choose Sub-Category</label>
-                    <select id="subcatSelect" class="form-select form-select-sm" style="border-radius: 6px !important; font-weight: 600; color: #1e293b;">
-                        <option value="">-- Choose Sub-Category --</option>
-                        {% for item in subcategories %}
-                        <option value="{{ item.id }}" data-name="{{ item.name }}">{{ item.name }}</option>
-                        {% endfor %}
-                    </select>
+                <div class="col-12 col-md-8 col-lg-5">
+                    <label class="form-label fw-bold text-muted small text-uppercase mb-2">Choose Sub-Category</label>
+                    <div class="custom-select-container" id="subcatDropdownWrap">
+                        <input type="text" id="subcatSearch" class="form-control form-control-sm custom-select-input"
+                            placeholder="&#128269; Type to search subcategory..."
+                            autocomplete="off">
+                        <span class="custom-select-arrow"><i class="bi bi-chevron-down"></i></span>
+                        <div class="custom-select-dropdown d-none" id="subcatDropdown">
+                            {% for item in all_subcats_dropdown %}
+                            <div class="custom-select-option" data-id="{{ item.id }}" data-name="{{ item.name }}">{{ item.name }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <input type="hidden" id="subcatSelectedId" value="">
                 </div>
             </div>
         </div>
@@ -549,32 +555,60 @@
 
 {% block extra_scripts %}
 <script>
+const URLS = {
+    searchSubcategory: "{% url 'search_subcategory' %}",
+    updatePriceRange:  "{% url 'update_price_range' %}",
+    addPriceRange:     "{% url 'add_price_range' %}",
+    deletePriceRange:  "{% url 'delete_price_range' %}",
+};
 $(document).ready(function () {
     let subcatXhr = null;
 
-    // Handle SubCategory select change to show details
-    $(document).on('change', '#subcatSelect', function () {
-        const select = $(this);
-        const subcatId = select.val();
-        
-        if (subcatId) {
-            const name = select.find('option:selected').data('name');
-
+    // ── Custom searchable subcategory dropdown ───────────────────────────────
+    function selectSubcat(id, name) {
+        $('#subcatSelectedId').val(id);
+        $('#subcatSearch').val(name);
+        $('#subcatDropdown').addClass('d-none');
+        // Show details
+        if (id) {
             $('.subcategory-details-row').addClass('d-none');
-            $(`#subcat-row-${subcatId}`).removeClass('d-none');
-
+            $(`#subcat-row-${id}`).removeClass('d-none');
             $('#selectedSubcatTitle').text(name);
             $('#subcategoryDetailsCard').removeClass('d-none');
         } else {
             $('.subcategory-details-row').addClass('d-none');
             $('#subcategoryDetailsCard').addClass('d-none');
         }
+    }
+
+    // Open dropdown and filter on input
+    $('#subcatSearch').on('focus input', function () {
+        const q = $(this).val().toLowerCase();
+        let any = false;
+        $('#subcatDropdown .custom-select-option').each(function () {
+            const matches = !q || $(this).text().toLowerCase().includes(q);
+            $(this).toggle(matches);
+            if (matches) any = true;
+        });
+        if (any) $('#subcatDropdown').removeClass('d-none');
     });
 
-    // Auto-select the first option if any exist
-    const firstOption = $('#subcatSelect option').eq(1); // index 0 is "-- Choose Sub-Category --"
-    if (firstOption.length && firstOption.val()) {
-        $('#subcatSelect').val(firstOption.val()).trigger('change');
+    // Select option on click
+    $(document).on('click', '#subcatDropdown .custom-select-option', function () {
+        selectSubcat($(this).data('id'), $(this).data('name'));
+    });
+
+    // Close dropdown on outside click
+    $(document).on('click', function (e) {
+        if (!$(e.target).closest('#subcatDropdownWrap').length) {
+            $('#subcatDropdown').addClass('d-none');
+        }
+    });
+
+    // Auto-select the first subcategory on page load
+    const firstOpt = $('#subcatDropdown .custom-select-option').first();
+    if (firstOpt.length) {
+        selectSubcat(firstOpt.data('id'), firstOpt.data('name'));
     }
 
     function fetchSubcategories(query) {
@@ -585,7 +619,7 @@ $(document).ready(function () {
         const buyerId = $('#buyerSelect').val() || '';
 
         subcatXhr = $.ajax({
-            url: '/search-subcategory/',
+            url: URLS.searchSubcategory,
             data: { q: query, buyer: buyerId },
             success(res) {
                 let html = '<div class="custom-select-option" data-value="" data-id="" data-approved="0" data-quantity="0" data-notes="">— All SubCategories —</div>';
@@ -725,7 +759,7 @@ $(document).ready(function () {
         inputs.css('border-color', '#fbbf24');
         
         $.ajax({
-            url: '/update-price-range/',
+            url: URLS.updatePriceRange,
             method: 'POST',
             contentType: 'application/json',
             headers: {
@@ -760,7 +794,7 @@ $(document).ready(function () {
         inputs.css('border-color', '#fbbf24');
         
         $.ajax({
-            url: '/update-price-range/',
+            url: URLS.updatePriceRange,
             method: 'POST',
             contentType: 'application/json',
             headers: {
@@ -794,7 +828,7 @@ $(document).ready(function () {
         const row = btn.closest('tr');
         
         $.ajax({
-            url: '/add-price-range/',
+            url: URLS.addPriceRange,
             method: 'POST',
             contentType: 'application/json',
             headers: {
@@ -854,7 +888,7 @@ $(document).ready(function () {
         
         if (confirm("Are you sure you want to delete this price range?")) {
             $.ajax({
-                url: '/delete-price-range/',
+                url: URLS.deletePriceRange,
                 method: 'POST',
                 contentType: 'application/json',
                 headers: {
@@ -890,7 +924,7 @@ $(document).ready(function () {
 
         input.css('border-color', '#fbbf24');
         $.ajax({
-            url: '/update-price-range/',
+            url: URLS.updatePriceRange,
             method: 'POST',
             contentType: 'application/json',
             headers: { 'X-CSRFToken': '{{ csrf_token }}' },
