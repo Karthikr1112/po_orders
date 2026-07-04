@@ -530,23 +530,59 @@ def po_sheet(request):
 @login_required
 def search_vendor(request):
     query = (request.GET.get("q") or "").strip()
-    vendors = fetch_mssql_vendors(query)
-    results = [
-        {
-            "id": v["vendor_code"],
-            "code": v["vendor_code"],
-            "name": v["vendor_name"],
-            "contact": v["contact_person"],
-            "phone": v["phone"],
-            "email": v["email"],
-            "address": v["address"],
-            "city": v["city"],
-            "state": v["state"],
-            "pin_code": v["pin_code"],
-            "gst_number": v["gst_number"],
-        }
-        for v in vendors
-    ]
+    
+    # 1. Fetch from MSSQL external DB
+    mssql_vendors = fetch_mssql_vendors(query)
+    
+    # 2. Fetch from Local MySQL DB
+    local_qs = Vendor.objects.all()
+    if query:
+        local_qs = local_qs.filter(
+            Q(vendor_code__icontains=query) |
+            Q(vendor_name__icontains=query) |
+            Q(city__icontains=query)
+        )
+    
+    seen_codes = set()
+    results = []
+    
+    # Add local DB vendors first (prioritize local definitions & manual entries)
+    for v in local_qs[:100]:
+        code = v.vendor_code.strip()
+        seen_codes.add(code)
+        results.append({
+            "id": code,
+            "code": code,
+            "name": v.vendor_name,
+            "contact": v.contact_person or "",
+            "phone": v.phone or "",
+            "email": v.email or "",
+            "address": v.address or "",
+            "city": v.city or "",
+            "state": v.state or "",
+            "pin_code": v.pin_code or "",
+            "gst_number": v.gst_number or "",
+        })
+        
+    # Add MSSQL vendors that aren't already fetched locally
+    for v in mssql_vendors:
+        code = v["vendor_code"].strip()
+        if code not in seen_codes:
+            seen_codes.add(code)
+            results.append({
+                "id": code,
+                "code": code,
+                "name": v["vendor_name"],
+                "contact": v["contact_person"] or "",
+                "phone": v["phone"] or "",
+                "email": v["email"] or "",
+                "address": v["address"] or "",
+                "city": v["city"] or "",
+                "state": v["state"] or "",
+                "pin_code": v["pin_code"] or "",
+                "gst_number": v["gst_number"] or "",
+            })
+            
     return JsonResponse({"vendors": results})
 
 
