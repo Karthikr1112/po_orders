@@ -3,6 +3,7 @@ import json
 import logging
 import re
 from datetime import datetime
+from django.utils import timezone
 from decimal import Decimal, InvalidOperation
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
@@ -25,6 +26,8 @@ from .models import (
     SubCategorySize,
     Vendor,
     SubCategoryPriceRange,
+    SubCategoryRatio,
+    RatioType,
 )
 
 logger = logging.getLogger("po_sheet")
@@ -34,18 +37,21 @@ logger = logging.getLogger("po_sheet")
 # Batch query helpers  (eliminate N+1 patterns throughout the module)
 # ---------------------------------------------------------------------------
 
-def _batch_pr_aggregates(subcat_ids):
+def _batch_pr_aggregates(subcat_ids, season_name=None):
     """
     Return a dict: {subcategory_id: {'total_amt': Decimal, 'total_qty': int}}
-    for all price ranges belonging to the given subcategory IDs.
+    for all price ranges belonging to the given subcategory IDs and season.
     Single query regardless of how many IDs are passed.
     """
     if not subcat_ids:
         return {}
+    qs = SubCategoryPriceRange.objects.filter(subcategory_id__in=subcat_ids)
+    if season_name:
+        qs = qs.filter(season__name=season_name)
+    else:
+        qs = qs.filter(season__isnull=True)
     rows = (
-        SubCategoryPriceRange.objects
-        .filter(subcategory_id__in=subcat_ids)
-        .values("subcategory_id")
+        qs.values("subcategory_id")
         .annotate(total_amt=Sum("approved_amount"), total_qty=Sum("approved_quantity"))
     )
     return {r["subcategory_id"]: r for r in rows}
@@ -80,24 +86,67 @@ def _batch_placed_maps(subcat_ids, extra_filter=None):
 # Local Price Range helper
 # ---------------------------------------------------------------------------
 
-def get_or_sync_subcategory_price_ranges(subcategory):
+def get_or_sync_subcategory_price_ranges(subcategory, season=None):
     """
     Fetch price ranges for the subcategory from the local database.
-    If none exist, create a default 0.00 to 0.00 range so that the user
-    can enter/edit buying price ranges.
+    If none exist, copy/sync ranges from other seasons for this subcategory.
+    If a single placeholder range (0.00 to 0.00) exists without budget/qty,
+    and other seasons have actual price ranges, replace it.
+    If no ranges exist at all, create a default 0.00 to 0.00 range.
     """
-    ranges = list(SubCategoryPriceRange.objects.filter(subcategory=subcategory).order_by('sales_from_range'))
-    if not ranges:
-        obj, created = SubCategoryPriceRange.objects.get_or_create(
-            subcategory=subcategory,
-            sales_from_range=Decimal("0.00"),
-            sales_to_range=Decimal("0.00"),
-            defaults={
-                "buying_from_range": Decimal("0.00"),
-                "buying_to_range": Decimal("0.00"),
-            }
-        )
-        ranges = [obj]
+    ranges = list(SubCategoryPriceRange.objects.filter(subcategory=subcategory, season=season).order_by('sales_from_range'))
+    
+    is_placeholder = False
+    if len(ranges) == 1:
+        pr = ranges[0]
+        if (pr.sales_from_range == Decimal("0.00") and 
+            pr.sales_to_range == Decimal("0.00") and 
+            (pr.approved_amount or Decimal("0.00")) == Decimal("0.00") and 
+            (pr.approved_quantity or 0) == 0):
+            is_placeholder = True
+
+    if not ranges or is_placeholder:
+        existing_other_ranges = SubCategoryPriceRange.objects.filter(subcategory=subcategory).exclude(season=season).order_by('sales_from_range')
+        if existing_other_ranges.exists():
+            if is_placeholder:
+                ranges[0].delete()
+                ranges = []
+            
+            seen = set()
+            new_objs = []
+            for r in existing_other_ranges:
+                key = (r.sales_from_range, r.sales_to_range, r.buying_from_range, r.buying_to_range)
+                if key not in seen:
+                    seen.add(key)
+                    new_objs.append(
+                        SubCategoryPriceRange(
+                            subcategory=subcategory,
+                            season=season,
+                            sales_from_range=r.sales_from_range,
+                            sales_to_range=r.sales_to_range,
+                            buying_from_range=r.buying_from_range,
+                            buying_to_range=r.buying_to_range,
+                            approved_amount=Decimal("0.00"),
+                            approved_quantity=0
+                        )
+                    )
+            if new_objs:
+                SubCategoryPriceRange.objects.bulk_create(new_objs)
+                ranges = list(SubCategoryPriceRange.objects.filter(subcategory=subcategory, season=season).order_by('sales_from_range'))
+
+        if not ranges:
+            if not is_placeholder:
+                obj, created = SubCategoryPriceRange.objects.get_or_create(
+                    subcategory=subcategory,
+                    season=season,
+                    sales_from_range=Decimal("0.00"),
+                    sales_to_range=Decimal("0.00"),
+                    defaults={
+                        "buying_from_range": Decimal("0.00"),
+                        "buying_to_range": Decimal("0.00"),
+                    }
+                )
+                ranges = [obj]
     return ranges
 
 
@@ -105,21 +154,28 @@ def get_or_sync_subcategory_price_ranges(subcategory):
 # MSSQL helpers
 # ---------------------------------------------------------------------------
 
+_mssql_conn_str = None
+
 def _get_mssql_conn():
     """Open a fresh pyodbc connection from settings. Always close in a finally block."""
+    global _mssql_conn_str
     from django.conf import settings
     import pyodbc
 
-    db = settings.DATABASES["mssql"]
-    driver = db.get("OPTIONS", {}).get("driver", "ODBC Driver 17 for SQL Server")
-    server = db.get("HOST", "localhost")
-    port = db.get("PORT", "")
-    server_str = f"{server},{port}" if port else server
-    conn_str = (
-        f"DRIVER={{{driver}}};SERVER={server_str};"
-        f"DATABASE={db.get('NAME','')};UID={db.get('USER','')};PWD={db.get('PASSWORD','')}"
-    )
-    return pyodbc.connect(conn_str, timeout=10)
+    if _mssql_conn_str is None:
+        db = settings.DATABASES["mssql"]
+        driver = db.get("OPTIONS", {}).get("driver", "ODBC Driver 17 for SQL Server")
+        server = db.get("HOST", "localhost")
+        port = db.get("PORT", "")
+        server_str = f"{server},{port}" if port else server
+        pwd = db.get("PASSWORD", "")
+        name = db.get("NAME", "")
+        user = db.get("USER", "")
+        _mssql_conn_str = (
+            f"DRIVER={{{driver}}};SERVER={server_str};"
+            f"DATABASE={name};UID={user};PWD={pwd};autocommit=yes"
+        )
+    return pyodbc.connect(_mssql_conn_str, timeout=10)
 
 
 def fetch_mssql_vendors(query=None):
@@ -141,9 +197,14 @@ def fetch_mssql_vendors(query=None):
                 "SELECT TOP 50 lifnr, name, city, gstNo, postCode, street, email1"
                 " FROM [dbo].[Vendor_B]"
             )
+        seen_codes = set()
         for row in cursor.fetchall():
+            code = str(row[0] or "").strip()
+            if code in seen_codes:
+                continue
+            seen_codes.add(code)
             vendors_list.append({
-                "vendor_code": row[0],
+                "vendor_code": code,
                 "vendor_name": row[1] or "",
                 "address": row[5] or "",
                 "city": row[2] or "",
@@ -160,6 +221,61 @@ def fetch_mssql_vendors(query=None):
         if conn:
             conn.close()
     return vendors_list
+
+
+def fetch_mssql_cities():
+    cities = []
+    conn = None
+    try:
+        conn = _get_mssql_conn()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT DISTINCT city FROM [dbo].[Vendor_B]"
+            " WHERE city IS NOT NULL AND city != ''"
+            " ORDER BY city"
+        )
+        for row in cursor.fetchall():
+            city = str(row[0] or "").strip()
+            if city:
+                cities.append(city)
+    except Exception:
+        logger.exception("MSSQL error in fetch_mssql_cities")
+        cities = list(Vendor.objects.values_list('city', flat=True).distinct().exclude(city__isnull=True).exclude(city='').order_by('city'))
+    finally:
+        if conn:
+            conn.close()
+    return cities
+
+
+def fetch_mssql_all_vendors():
+    vendors = []
+    conn = None
+    try:
+        conn = _get_mssql_conn()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT lifnr, name FROM [dbo].[Vendor_B]"
+            " WHERE lifnr IS NOT NULL AND name IS NOT NULL AND name != ''"
+            " ORDER BY name"
+        )
+        seen_codes = set()
+        for row in cursor.fetchall():
+            code = str(row[0] or "").strip()
+            name = str(row[1] or "").strip()
+            if code and code not in seen_codes:
+                seen_codes.add(code)
+                vendors.append({
+                    "vendor_code": code,
+                    "vendor_name": name,
+                })
+    except Exception:
+        logger.exception("MSSQL error in fetch_mssql_all_vendors")
+        vendors = list(Vendor.objects.values('vendor_code', 'vendor_name').order_by('vendor_name'))
+    finally:
+        if conn:
+            conn.close()
+    return vendors
+
 
 
 def get_or_create_mssql_vendor(vendor_code):
@@ -215,14 +331,20 @@ def get_or_create_mssql_vendor(vendor_code):
 # Budget helpers
 # ---------------------------------------------------------------------------
 
-def get_subcategory_remaining_budget(subcategory, exclude_po_id=None, include_draft_po_id=None):
+def get_subcategory_remaining_budget(subcategory, exclude_po_id=None, include_draft_po_id=None, season_name=None):
     if not subcategory:
         return Decimal("0")
 
-    # Total approved = sum of all price range approved_amounts for this subcategory
-    agg = SubCategoryPriceRange.objects.filter(subcategory=subcategory).aggregate(
-        total=Sum("approved_amount")
-    )
+    if not season_name and include_draft_po_id:
+        season_name = PurchaseOrder.objects.filter(id=include_draft_po_id).values_list('season', flat=True).first()
+
+    qs_pr = SubCategoryPriceRange.objects.filter(subcategory=subcategory)
+    if season_name:
+        qs_pr = qs_pr.filter(season__name=season_name)
+    else:
+        qs_pr = qs_pr.filter(season__isnull=True)
+
+    agg = qs_pr.aggregate(total=Sum("approved_amount"))
     approved_total = agg["total"] or Decimal("0")
     if not approved_total:
         return Decimal("0")
@@ -231,6 +353,9 @@ def get_subcategory_remaining_budget(subcategory, exclude_po_id=None, include_dr
         subcategory=subcategory,
         purchase_order__is_draft=False,
     )
+    if season_name:
+        qs = qs.filter(purchase_order__season=season_name)
+
     if exclude_po_id:
         qs = qs.exclude(purchase_order_id=exclude_po_id)
 
@@ -256,7 +381,7 @@ def get_subcategory_remaining_budget(subcategory, exclude_po_id=None, include_dr
 
 def generate_next_po_number():
     last = (
-        PurchaseOrder.objects.filter(po_number__startswith="PO-")
+        PurchaseOrder.objects.filter(po_number__startswith="PO-", is_draft=False)
         .order_by("-id")
         .values_list("po_number", flat=True)
         .first()
@@ -317,22 +442,31 @@ def logout_view(request):
 @ensure_csrf_cookie
 def po_sheet(request):
     user = request.user
-    po = PurchaseOrder.objects.filter(created_by=user, is_draft=True).first()
+    po = PurchaseOrder.objects.select_related("vendor").filter(created_by=user, is_draft=True).first()
     if not po:
         po = PurchaseOrder.objects.create(
             created_by=user,
             is_draft=True,
-            po_number=generate_next_po_number(),
+            po_number=f"DRAFT-{user.id}",
+            po_date=timezone.localdate(),
         )
 
-    # Ensure draft has a proper PO-XXXX number
-    if not re.match(r"^PO-\d{4,}$", po.po_number):
-        po.po_number = generate_next_po_number()
-        po.save(update_fields=["po_number"])
+    # Ensure draft has its unique draft identifier and default date is set
+    updated_fields = []
+    draft_num = f"DRAFT-{user.id}"
+    if po.po_number != draft_num:
+        po.po_number = draft_num
+        updated_fields.append("po_number")
+    if not po.po_date:
+        po.po_date = timezone.localdate()
+        updated_fields.append("po_date")
+    if updated_fields:
+        po.save(update_fields=updated_fields)
 
-    po_items = po.items.select_related("subcategory").all()
+    # Evaluate once — prevents queryset re-hitting DB on each iteration/template loop
+    po_items = list(po.items.select_related("subcategory").all())
 
-    agg = po_items.aggregate(total_qty=Sum("tot_qty"), grand_total=Sum("tot_amt"))
+    agg = po.items.aggregate(total_qty=Sum("tot_qty"), grand_total=Sum("tot_amt"))
     totals = {
         "items": agg["total_qty"] or 0,
         "subtotal": Decimal("0"),
@@ -347,8 +481,14 @@ def po_sheet(request):
 
     # Budget availability per subcategory — 2 queries total, no N+1
     subcat_ids = [item.subcategory_id for item in po_items]
-    pr_agg_map = _batch_pr_aggregates(subcat_ids)
-    placed_map, placed_qty_map = _batch_placed_maps(subcat_ids)
+    pr_agg_map = _batch_pr_aggregates(subcat_ids, season_name=po.season)
+    
+    extra_filter = Q()
+    if po.buyer:
+        extra_filter &= Q(purchase_order__buyer=po.buyer)
+    if po.season:
+        extra_filter &= Q(purchase_order__season=po.season)
+    placed_map, placed_qty_map = _batch_placed_maps(subcat_ids, extra_filter=extra_filter)
 
     for item in po_items:
         sc = item.subcategory
@@ -363,12 +503,18 @@ def po_sheet(request):
         sc.spent_amount_val = float(placed)
         sc.spent_qty_val = int(placed_qty_map.get(sc.id, 0))
 
+    preview_po_number = po.po_number
+    if po.is_draft:
+        preview_po_number = generate_next_po_number()
+
     context = {
         "po": po,
+        "preview_po_number": preview_po_number,
         "po_items": po_items,
         "totals": totals,
         "buyers": Buyer.objects.all(),
         "seasons": Season.objects.all(),
+        "ratio_types": RatioType.objects.all().order_by("name"),
         "schedules_json": json.dumps(po.delivery_schedules or []),
         "categories": [],
         "all_subcategories": [],
@@ -447,6 +593,7 @@ def vendor_list(request):
 def search_subcategory(request):
     query = (request.GET.get("q") or "").strip()
     buyer_id = request.GET.get("buyer", "").strip()
+    season_name = (request.GET.get("season") or "").strip()
 
     try:
         if buyer_id:
@@ -464,8 +611,14 @@ def search_subcategory(request):
                 subcat_ids = [sc.id for sc in subcat_list]
 
                 # 2 queries for all price-range + placed data (no N+1)
-                pr_agg_map = _batch_pr_aggregates(subcat_ids)
-                placed_map, placed_qty_map = _batch_placed_maps(subcat_ids)
+                pr_agg_map = _batch_pr_aggregates(subcat_ids, season_name=season_name)
+                
+                extra_filter = Q()
+                if buyer_id_int:
+                    extra_filter &= Q(purchase_order__buyer_id=buyer_id_int)
+                if season_name:
+                    extra_filter &= Q(purchase_order__season=season_name)
+                placed_map, placed_qty_map = _batch_placed_maps(subcat_ids, extra_filter=extra_filter)
 
                 results = []
                 for sc in subcat_list:
@@ -520,7 +673,32 @@ def search_subcategory(request):
                 conn.close()
 
         if not rows:
-            return JsonResponse({"subcategories": []})
+            qs = SubCategory.objects.all()
+            if query:
+                qs = qs.filter(name__icontains=query) | qs.filter(ch4_code__icontains=query)
+            local_ids = [sc.id for sc in qs[:50]]
+            pr_agg_map = _batch_pr_aggregates(local_ids)
+            placed_map, placed_qty_map = _batch_placed_maps(local_ids)
+            results = []
+            for sc in qs[:50]:
+                pr = pr_agg_map.get(sc.id, {})
+                approved_amount = pr.get("total_amt") or Decimal("0")
+                approved_quantity = pr.get("total_qty") or 0
+                spent_placed = placed_map.get(sc.id, Decimal("0"))
+                results.append({
+                    "id": sc.id,
+                    "name": sc.name,
+                    "ch4_code": sc.ch4_code or "",
+                    "category": "Local Category",
+                    "available_budget": float(max(Decimal("0"), approved_amount - Decimal(str(spent_placed)))),
+                    "has_budget": approved_amount > 0,
+                    "approved_amount": float(approved_amount),
+                    "approved_quantity": approved_quantity,
+                    "spent_amount": float(spent_placed),
+                    "spent_quantity": int(placed_qty_map.get(sc.id, 0)),
+                    "unit_price": 0.0,
+                })
+            return JsonResponse({"subcategories": results})
 
         # Single query for all local subcategories in the MSSQL result set
         names = [r[0] for r in rows]
@@ -747,7 +925,7 @@ def add_manual_item(request):
             po = PurchaseOrder.objects.create(
                 created_by=request.user,
                 is_draft=True,
-                po_number=generate_next_po_number(),
+                po_number=f"DRAFT-{request.user.id}",
             )
 
         existing = po.items.filter(subcategory=subcategory).first()
@@ -808,6 +986,10 @@ def update_po_fields(request):
             vendor_id = data["vendor"]
             po.vendor = get_or_create_mssql_vendor(vendor_id) if vendor_id else None
             update_fields.append("vendor")
+        if "ratio_type" in data:
+            ratio_type_id = data["ratio_type"]
+            po.ratio_type = RatioType.objects.filter(id=ratio_type_id).first() if ratio_type_id else None
+            update_fields.append("ratio_type")
         if "po_date" in data and data["po_date"]:
             for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y"):
                 try:
@@ -871,12 +1053,15 @@ def save_po(request):
                         pass
 
             items_data = data.get("items", [])
+            if not items_data:
+                raise ValueError("Cannot save a Purchase Order with no items. Please add at least one line item.")
 
             # --- Pre-fetch all needed subcategories + price ranges (2 queries) ---
             subcat_ids = [item.get("subcategory_id") for item in items_data if item.get("subcategory_id")]
             subcat_map = {sc.id: sc for sc in SubCategory.objects.filter(id__in=subcat_ids)}
             ranges_map = {}  # subcat_id -> [price_range_objs]
-            for pr in SubCategoryPriceRange.objects.filter(subcategory_id__in=subcat_ids):
+            season_obj = Season.objects.filter(name=po.season).first() if po.season else None
+            for pr in SubCategoryPriceRange.objects.filter(subcategory_id__in=subcat_ids, season=season_obj):
                 ranges_map.setdefault(pr.subcategory_id, []).append(pr)
 
             # --- Validate Admin Budget / Qty Limits per Price Range ---
@@ -904,7 +1089,7 @@ def save_po(request):
 
                 price_ranges = ranges_map.get(subcat.id, [])
                 if not price_ranges:
-                    price_ranges = get_or_sync_subcategory_price_ranges(subcat)
+                    price_ranges = get_or_sync_subcategory_price_ranges(subcat, season=season_obj)
                     ranges_map[subcat.id] = price_ranges
 
                 matched_range = None
@@ -1085,9 +1270,10 @@ def submit_po(request):
 def new_po(request):
     PurchaseOrder.objects.filter(created_by=request.user, is_draft=True).delete()
     PurchaseOrder.objects.create(
-        po_number=generate_next_po_number(),
+        po_number=f"DRAFT-{request.user.id}",
         created_by=request.user,
         is_draft=True,
+        po_date=timezone.localdate(),
     )
     messages.success(request, "New purchase order created")
     return redirect("po_sheet")
@@ -1267,7 +1453,7 @@ def export_po_csv(request, po_id):
     ])
     writer.writerow([])
     writer.writerow([
-        "Item #", "SubCategory", "CH4 Code", "Item Type",
+        "Item #", "SubCategory", "CH4 Code",
         "Order Qty", "Total Qty", "Unit Price", "Discount %", "Total Amount", "Size Allocations",
     ])
     for i, item in enumerate(po.items.select_related("subcategory").all(), 1):
@@ -1276,7 +1462,6 @@ def export_po_csv(request, po_id):
             i,
             item.subcategory.name if item.subcategory else "",
             item.subcategory.ch4_code if item.subcategory else "",
-            item.item_type,
             item.order_qty, item.tot_qty,
             item.unit_price, item.discount_percentage, item.tot_amt,
             " | ".join(f"{k}:{v}" for k, v in sizes.items()),
@@ -1356,24 +1541,35 @@ def admin_budget(request):
     else:
         subcat_qs = []
 
-    # Ensure every subcategory has at least one price range (batch: only one extra
-    # query per subcategory that is genuinely missing ranges, usually zero).
+    # Ensure every subcategory has at least one price range (batch check)
     subcat_ids_all = [sc.id for sc in subcat_qs]
-    existing_range_ids = set(
-        SubCategoryPriceRange.objects
-        .filter(subcategory_id__in=subcat_ids_all)
-        .values_list("subcategory_id", flat=True)
-        .distinct()
-    )
+    ranges_by_subcat_selected = {}
+    if subcat_ids_all:
+        for pr in SubCategoryPriceRange.objects.filter(subcategory_id__in=subcat_ids_all, season=selected_season):
+            ranges_by_subcat_selected.setdefault(pr.subcategory_id, []).append(pr)
+
     for sc in subcat_qs:
-        if sc.id not in existing_range_ids:
-            get_or_sync_subcategory_price_ranges(sc)
+        existing = ranges_by_subcat_selected.get(sc.id, [])
+        needs_sync = False
+        if not existing:
+            needs_sync = True
+        elif len(existing) == 1:
+            pr = existing[0]
+            if (pr.sales_from_range == Decimal("0.00") and 
+                pr.sales_to_range == Decimal("0.00") and 
+                (pr.approved_amount or Decimal("0.00")) == Decimal("0.00") and 
+                (pr.approved_quantity or 0) == 0):
+                needs_sync = True
+                
+        if needs_sync:
+            get_or_sync_subcategory_price_ranges(sc, season=selected_season)
 
     # Refresh prefetch so newly created ranges are visible
     if subcat_ids_all:
         from django.db.models import Prefetch
         pr_prefetch = SubCategoryPriceRange.objects.filter(
-            subcategory_id__in=subcat_ids_all
+            subcategory_id__in=subcat_ids_all,
+            season=selected_season
         ).order_by("sales_from_range")
         pr_by_sc = {}
         for pr in pr_prefetch:
@@ -1444,7 +1640,10 @@ def admin_budget(request):
     page_obj = paginator.get_page(request.GET.get("page"))
     return render(request, "po_sheet/admin_budget.html", {
         "subcategories": page_obj.object_list,
-        "all_subcats_dropdown": [{"id": r["id"], "name": r["name"]} for r in rows],
+        "all_subcats_dropdown": [
+            {"id": r["id"], "name": r["name"], "page": (i // 30) + 1}
+            for i, r in enumerate(rows)
+        ],
         "page_obj": page_obj,
         "total_budgeted_count": paginator.count,
         "all_buyers": all_buyers,
@@ -1495,10 +1694,13 @@ def add_price_range(request):
     try:
         data = json.loads(request.body)
         subcategory_id = data.get("subcategory_id")
+        season_id = data.get("season_id")
         subcat = SubCategory.objects.get(id=subcategory_id)
         
-        # Find maximum sales_to_range for this subcategory to avoid duplicate key constraint
-        max_range = SubCategoryPriceRange.objects.filter(subcategory=subcat).order_by("-sales_to_range").first()
+        season_obj = Season.objects.filter(id=season_id).first() if season_id else None
+        
+        # Find maximum sales_to_range for this subcategory and season to avoid duplicate key constraint
+        max_range = SubCategoryPriceRange.objects.filter(subcategory=subcat, season=season_obj).order_by("-sales_to_range").first()
         if max_range:
             new_sales_from = max_range.sales_to_range + Decimal("1.00")
             new_sales_to = new_sales_from
@@ -1508,6 +1710,7 @@ def add_price_range(request):
             
         new_range = SubCategoryPriceRange.objects.create(
             subcategory=subcat,
+            season=season_obj,
             sales_from_range=new_sales_from,
             sales_to_range=new_sales_to,
             buying_from_range=Decimal("0.00"),
@@ -1553,22 +1756,29 @@ def get_subcategory_ranges(request, subcategory_id):
     if not sc:
         return JsonResponse({"success": True, "ranges": []})
 
-    price_ranges = get_or_sync_subcategory_price_ranges(sc)
+    season_name = request.GET.get("season", "").strip()
+    buyer_id = request.GET.get("buyer", "").strip()
 
-    # Fetch ALL submitted items for this subcategory in ONE query, then
-    # classify in-memory — avoids N per-range DB queries.
-    all_items = list(
-        PurchaseOrderItem.objects.filter(
-            subcategory=sc, purchase_order__is_draft=False
-        ).values("unit_price", "tot_amt", "tot_qty")
+    season_obj = Season.objects.filter(name=season_name).first() if season_name else None
+    price_ranges = get_or_sync_subcategory_price_ranges(sc, season=season_obj)
+
+    # Fetch ALL submitted items for this subcategory and season in ONE query
+    items_qs = PurchaseOrderItem.objects.filter(
+        subcategory=sc, purchase_order__is_draft=False
     )
+    if season_name:
+        items_qs = items_qs.filter(purchase_order__season=season_name)
+    if buyer_id:
+        items_qs = items_qs.filter(purchase_order__buyer_id=buyer_id)
+
+    all_items = list(items_qs.values("unit_price", "tot_amt", "tot_qty"))
 
     total_spent_amount = sum(float(i["tot_amt"]) for i in all_items)
     total_spent_quantity = sum(int(i["tot_qty"]) for i in all_items)
 
     total_ranges = len(price_ranges)
 
-    # Build per-range accumulators in Python — O(items × ranges), negligible
+    # Build per-range accumulators in Python
     range_amt = {r.id: Decimal("0") for r in price_ranges}
     range_qty = {r.id: 0 for r in price_ranges}
 
@@ -1641,8 +1851,144 @@ def get_subcategory_sizes(request, subcategory_id):
         sc = SubCategory.objects.filter(name=subcategory_id).first()
     if not sc:
         return JsonResponse({"success": True, "sizes": []})
+
+    vendor_id = request.GET.get("vendor_id")
+    buyer_id = request.GET.get("buyer_id")
+    ratio_type_id = request.GET.get("ratio_type_id")
+    ratio = None
+
+    # 1. Search with Ratio Type if provided
+    if ratio_type_id:
+        if vendor_id and buyer_id:
+            ratio_obj = SubCategoryRatio.objects.filter(vendor_id=vendor_id, buyer_id=buyer_id, subcategory=sc, ratio_type_id=ratio_type_id).first()
+            if ratio_obj:
+                ratio = ratio_obj.ratio_data
+
+        if not ratio and vendor_id:
+            ratio_obj = SubCategoryRatio.objects.filter(vendor_id=vendor_id, buyer__isnull=True, subcategory=sc, ratio_type_id=ratio_type_id).first()
+            if ratio_obj:
+                ratio = ratio_obj.ratio_data
+
+        if not ratio and buyer_id:
+            ratio_obj = SubCategoryRatio.objects.filter(vendor__isnull=True, buyer_id=buyer_id, subcategory=sc, ratio_type_id=ratio_type_id).first()
+            if ratio_obj:
+                ratio = ratio_obj.ratio_data
+
+        if not ratio:
+            ratio_obj = SubCategoryRatio.objects.filter(vendor__isnull=True, buyer__isnull=True, subcategory=sc, ratio_type_id=ratio_type_id).first()
+            if ratio_obj:
+                ratio = ratio_obj.ratio_data
+
+    # 2. Fallback to default (no Ratio Type)
+    if not ratio:
+        if vendor_id and buyer_id:
+            ratio_obj = SubCategoryRatio.objects.filter(vendor_id=vendor_id, buyer_id=buyer_id, subcategory=sc, ratio_type__isnull=True).first()
+            if ratio_obj:
+                ratio = ratio_obj.ratio_data
+
+        if not ratio and vendor_id:
+            ratio_obj = SubCategoryRatio.objects.filter(vendor_id=vendor_id, buyer__isnull=True, subcategory=sc, ratio_type__isnull=True).first()
+            if ratio_obj:
+                ratio = ratio_obj.ratio_data
+
+        if not ratio and buyer_id:
+            ratio_obj = SubCategoryRatio.objects.filter(vendor__isnull=True, buyer_id=buyer_id, subcategory=sc, ratio_type__isnull=True).first()
+            if ratio_obj:
+                ratio = ratio_obj.ratio_data
+
+        if not ratio:
+            ratio_obj = SubCategoryRatio.objects.filter(vendor__isnull=True, buyer__isnull=True, subcategory=sc, ratio_type__isnull=True).first()
+            if ratio_obj:
+                ratio = ratio_obj.ratio_data
+
     sizes = list(SubCategorySize.objects.filter(subcategory=sc).order_by("id").values("id", "name"))
-    return JsonResponse({"success": True, "sizes": sizes})
+    return JsonResponse({"success": True, "sizes": sizes, "ratio": ratio})
+
+
+@login_required
+def ratio_manager(request):
+    if not request.user.is_staff:
+        messages.error(request, "Only administrators can manage ratios")
+        return redirect("po_sheet")
+    
+    q = (request.GET.get("q") or "").strip()
+    ratios_qs = SubCategoryRatio.objects.select_related("vendor", "buyer", "subcategory", "ratio_type").order_by("subcategory__name", "vendor__vendor_name", "buyer__name")
+    if q:
+        ratios_qs = ratios_qs.filter(
+            Q(subcategory__name__icontains=q) | 
+            Q(vendor__vendor_name__icontains=q) | 
+            Q(vendor__vendor_code__icontains=q) |
+            Q(buyer__name__icontains=q) |
+            Q(ratio_type__name__icontains=q)
+        )
+    
+    paginator = Paginator(ratios_qs, 15)
+    page_obj = paginator.get_page(request.GET.get("page"))
+    
+    vendors = Vendor.objects.all().order_by("vendor_name")
+    buyers = Buyer.objects.all().order_by("name")
+    subcategories = SubCategory.objects.all().order_by("name")
+    ratio_types = RatioType.objects.all().order_by("name")
+    
+    return render(request, "po_sheet/ratio_manager.html", {
+        "page_obj": page_obj,
+        "ratios": page_obj.object_list,
+        "vendors": vendors,
+        "buyers": buyers,
+        "subcategories": subcategories,
+        "ratio_types": ratio_types,
+        "search_query": q,
+    })
+
+
+@login_required
+@require_POST
+def save_ratio(request):
+    if not request.user.is_staff:
+        return JsonResponse({"success": False, "error": "Unauthorized"})
+    try:
+        data = json.loads(request.body)
+        vendor_code = data.get("vendor_code") or None
+        buyer_id = data.get("buyer_id") or None
+        subcategory_id = data.get("subcategory_id")
+        ratio_type_id = data.get("ratio_type_id") or None
+        ratio_data = data.get("ratio_data", {})
+        
+        sc = get_object_or_404(SubCategory, id=subcategory_id)
+        vendor = None
+        if vendor_code:
+            vendor = get_or_create_mssql_vendor(vendor_code)
+            
+        buyer = None
+        if buyer_id:
+            buyer = get_object_or_404(Buyer, id=buyer_id)
+            
+        ratio_type = None
+        if ratio_type_id:
+            ratio_type = get_object_or_404(RatioType, id=ratio_type_id)
+
+        ratio_obj, created = SubCategoryRatio.objects.update_or_create(
+            vendor=vendor,
+            buyer=buyer,
+            subcategory=sc,
+            ratio_type=ratio_type,
+            defaults={"ratio_data": ratio_data}
+        )
+        return JsonResponse({"success": True})
+    except Exception as e:
+        logger.exception("save_ratio error")
+        return JsonResponse({"success": False, "error": str(e)})
+
+
+@login_required
+@require_POST
+def delete_ratio(request, ratio_id):
+    if not request.user.is_staff:
+        return JsonResponse({"success": False, "error": "Unauthorized"})
+    ratio_obj = get_object_or_404(SubCategoryRatio, id=ratio_id)
+    ratio_obj.delete()
+    return JsonResponse({"success": True})
+
 
 
 @login_required
@@ -1840,8 +2186,12 @@ def _process_price_range_upload(ws, user):
             subcat_name = str(col(row, ["subcategory name", "subcategory", "sub category", "name"]) or "").strip()
             sc_code_val = str(col(row, ["subcategory code", "subcat code", "code", "ch4"]) or "").strip()
             buyer_name  = str(col(row, ["buyer"]) or "").strip()
+            season_name = str(col(row, ["season"]) or "").strip()
             if not subcat_name or subcat_name.lower() == "none":
                 results["errors"].append(f"Row {row_num}: Missing subcategory name")
+                continue
+            if not season_name or season_name.lower() == "none":
+                results["errors"].append(f"Row {row_num}: Missing season")
                 continue
             sc_code = sc_code_val if sc_code_val and sc_code_val.lower() != "none" else None
             parsed.append((
@@ -1852,26 +2202,44 @@ def _process_price_range_upload(ws, user):
                 Decimal(str(col(row, ["buying to",   "buy to"])   or 0)),
                 Decimal(str(col(row, ["approved budget", "budget", "approved amount"]) or 0)),
                 int(col(row, ["approved qty", "quantity", "qty"]) or 0),
+                season_name,
             ))
         except Exception as e:
             results["errors"].append(f"Row {row_num}: {e}")
 
-    # ── Pass 2: pre-fetch everything (3 queries) ────────────────────────────
+    # ── Pass 2: pre-fetch everything (4 queries) ────────────────────────────
     subcat_by_name = {s.name: s for s in SubCategory.objects.all()}
     subcat_by_code = {s.ch4_code: s for s in subcat_by_name.values() if s.ch4_code}
     buyer_by_name  = {b.name: b for b in Buyer.objects.all()}
+    season_by_name = {s.name.lower(): s for s in Season.objects.all()}
 
-    # ── Pass 3: collect new subcategories / buyers ──────────────────────────
-    new_sc_map, new_b_map = {}, {}
-    for _, subcat_name, sc_code, buyer_name, *_ in parsed:
+    # ── Pass 3: collect new subcategories / buyers / seasons ──────────────────
+    new_sc_map, new_b_map, new_season_map, pr_sc_code_updates = {}, {}, {}, []
+    for row_info in parsed:
+        row_num, subcat_name, sc_code, buyer_name, sf, st, bf, bt, ab, aq, season_name = row_info
+        # Primary check: by code only (if code present)
         sc = subcat_by_code.get(sc_code) if sc_code else None
         if not sc:
+            # Fallback: by name — prevents re-creating existing subcategory
+            # Also updates the code so future uploads find it by code
             sc = subcat_by_name.get(subcat_name)
-        if not sc and subcat_name not in new_sc_map:
+            if sc and sc_code and sc.ch4_code != sc_code:
+                sc.ch4_code = sc_code
+                pr_sc_code_updates.append(sc)
+                subcat_by_code[sc_code] = sc
+        if sc:
+            subcat_by_name[subcat_name] = sc
+        elif subcat_name not in new_sc_map:
             new_sc_map[subcat_name] = SubCategory(name=subcat_name, ch4_code=sc_code)
         if buyer_name and buyer_name.lower() != "none" and buyer_name not in buyer_by_name and buyer_name not in new_b_map:
             new_b_map[buyer_name] = Buyer(name=buyer_name)
+        
+        season_key = season_name.lower()
+        if season_key not in season_by_name and season_key not in new_season_map:
+            new_season_map[season_key] = Season(name=season_name)
 
+    if pr_sc_code_updates:
+        SubCategory.objects.bulk_update(pr_sc_code_updates, ['ch4_code'])
     if new_sc_map:
         SubCategory.objects.bulk_create(list(new_sc_map.values()), ignore_conflicts=True)
         for s in SubCategory.objects.filter(name__in=new_sc_map):
@@ -1895,19 +2263,24 @@ def _process_price_range_upload(ws, user):
                 b = Buyer.objects.filter(name__iexact=name).first()
                 if b:
                     buyer_by_name[name] = b
+    if new_season_map:
+        Season.objects.bulk_create(list(new_season_map.values()), ignore_conflicts=True)
+        for s in Season.objects.filter(name__in=[sn.name for sn in new_season_map.values()]):
+            season_by_name[s.name.lower()] = s
 
     # ── Pass 4: build M2M + price-range batches ─────────────────────────────
     ThroughModel   = SubCategory.buyers.through
     existing_links = set(ThroughModel.objects.values_list('subcategory_id', 'buyer_id'))
     existing_ranges = {
-        (pr.subcategory_id, pr.sales_from_range, pr.sales_to_range): pr
+        (pr.subcategory_id, pr.season_id, pr.sales_from_range, pr.sales_to_range): pr
         for pr in SubCategoryPriceRange.objects.all()
     }
 
     new_links, to_create, to_update, sc_code_updates = [], [], [], []
 
-    for row_num, subcat_name, sc_code, buyer_name, sf, st, bf, bt, ab, aq in parsed:
+    for row_num, subcat_name, sc_code, buyer_name, sf, st, bf, bt, ab, aq, season_name in parsed:
         try:
+            # Primary: by code only. Fallback: by name (name was registered in Pass 3)
             sc = subcat_by_code.get(sc_code) if sc_code else None
             if not sc:
                 sc = subcat_by_name.get(subcat_name)
@@ -1919,9 +2292,10 @@ def _process_price_range_upload(ws, user):
                 results["errors"].append(f"Row {row_num}: SubCategory not found: {subcat_name}")
                 continue
 
-            if sc_code and not sc.ch4_code:
-                sc.ch4_code = sc_code
-                sc_code_updates.append(sc)
+            sn_obj = season_by_name.get(season_name.lower())
+            if not sn_obj:
+                results["errors"].append(f"Row {row_num}: Season not found: {season_name}")
+                continue
 
             if buyer_name and buyer_name.lower() != "none":
                 b = buyer_by_name.get(buyer_name)
@@ -1931,7 +2305,7 @@ def _process_price_range_upload(ws, user):
                         new_links.append(ThroughModel(subcategory_id=sc.id, buyer_id=b.id))
                         existing_links.add(lk)
 
-            rk = (sc.id, sf, st)
+            rk = (sc.id, sn_obj.id, sf, st)
             pr = existing_ranges.get(rk)
             if pr:
                 if any([pr.buying_from_range != bf, pr.buying_to_range != bt,
@@ -1947,7 +2321,7 @@ def _process_price_range_upload(ws, user):
                     results["skipped"] += 1
             else:
                 new_pr = SubCategoryPriceRange(
-                    subcategory=sc, sales_from_range=sf, sales_to_range=st,
+                    subcategory=sc, season=sn_obj, sales_from_range=sf, sales_to_range=st,
                     buying_from_range=bf, buying_to_range=bt,
                     approved_amount=ab, approved_quantity=aq, subcat_code=sc_code,
                 )
@@ -2178,13 +2552,16 @@ def _buyer_report_data(buyer_name, season_filter, date_from, date_to):
         subcats = SubCategory.objects.filter(id__in=ordered_ids)
 
     # Bulk-fetch approved and spent per subcategory (2 queries instead of 2×N)
-    approved_map = {
-        row['subcategory_id']: row['t']
-        for row in SubCategoryPriceRange.objects
-            .filter(subcategory__in=subcats)
-            .values('subcategory_id')
-            .annotate(t=Sum('approved_amount'))
-    }
+    approved_map = {}
+    if season_filter:
+        pr_filter = Q(subcategory__in=subcats) & Q(season__name=season_filter)
+        approved_map = {
+            row['subcategory_id']: row['t']
+            for row in SubCategoryPriceRange.objects
+                .filter(pr_filter)
+                .values('subcategory_id')
+                .annotate(t=Sum('approved_amount'))
+        }
     spent_map = {
         row['subcategory_id']: row['t']
         for row in PurchaseOrderItem.objects
@@ -2192,6 +2569,57 @@ def _buyer_report_data(buyer_name, season_filter, date_from, date_to):
             .values('subcategory_id')
             .annotate(t=Sum('tot_amt'))
     }
+
+    # Fetch all SubCategoryPriceRange instances for the detailed list
+    price_ranges_by_subcat = {}
+    price_ranges_qs = SubCategoryPriceRange.objects.filter(subcategory__in=subcats)
+    if season_filter:
+        price_ranges_qs = price_ranges_qs.filter(season__name=season_filter)
+    for pr in price_ranges_qs.order_by('sales_from_range'):
+        price_ranges_by_subcat.setdefault(pr.subcategory_id, []).append(pr)
+
+    po_items = list(PurchaseOrderItem.objects.filter(purchase_order__in=pos, subcategory__in=subcats))
+    po_items_by_subcat = {}
+    for item in po_items:
+        po_items_by_subcat.setdefault(item.subcategory_id, []).append(item)
+
+    budget_details = []
+    for sc in subcats:
+        price_ranges = price_ranges_by_subcat.get(sc.id, [])
+        sc_items = po_items_by_subcat.get(sc.id, [])
+        
+        range_spent_amount = {}
+        range_spent_qty = {}
+        for item in sc_items:
+            matched_range = None
+            for pr in price_ranges:
+                if pr.buying_from_range <= item.unit_price <= pr.buying_to_range:
+                    matched_range = pr
+                    break
+            if matched_range:
+                range_spent_amount[matched_range.id] = range_spent_amount.get(matched_range.id, Decimal("0.00")) + item.tot_amt
+                range_spent_qty[matched_range.id] = range_spent_qty.get(matched_range.id, 0) + item.tot_qty
+
+        for pr in price_ranges:
+            spent_amt = range_spent_amount.get(pr.id, Decimal("0.00"))
+            spent_qty = range_spent_qty.get(pr.id, 0)
+            if spent_amt == 0 and spent_qty == 0:
+                continue
+            approved_amt = pr.approved_amount or Decimal("0.00")
+            approved_qty = pr.approved_quantity or 0
+            balance = approved_amt - spent_amt
+            
+            budget_details.append({
+                'subcat': sc.name,
+                'ch4_code': sc.ch4_code or '—',
+                'sales_range': f"{int(pr.sales_from_range)} - {int(pr.sales_to_range)}",
+                'buying_range': f"{int(pr.buying_from_range)} - {int(pr.buying_to_range)}",
+                'approved_amount': float(approved_amt),
+                'approved_quantity': approved_qty,
+                'spent_amount': float(spent_amt),
+                'spent_quantity': spent_qty,
+                'balance': float(balance),
+            })
 
     budget_health = []
     total_approved_all = 0
@@ -2239,9 +2667,12 @@ def _buyer_report_data(buyer_name, season_filter, date_from, date_to):
         'po_list':              po_list,
         'subcat_breakdown':     subcat_breakdown,
         'budget_health':        budget_health,
+        'budget_details':       budget_details,
         'total_approved':       total_approved_all,
         'total_spent':          total_spent_all,
+        'total_balance':        total_approved_all - total_spent_all if total_approved_all > 0 else 0,
         'overall_pct':          overall_pct,
+        'has_season_filter':    bool(season_filter),
         'chart_budget_labels':  chart_budget_labels,
         'chart_budget_approved': chart_budget_approved,
         'chart_budget_spent':   chart_budget_spent,
@@ -2295,13 +2726,15 @@ def buyer_report(request):
         )
 
         # Budget per buyer — single query via JOIN instead of N+1
-        buyer_budget_map = {
-            row['subcategory__buyers__name']: float(row['t'] or 0)
-            for row in SubCategoryPriceRange.objects
-                .filter(subcategory__buyers__isnull=False)
-                .values('subcategory__buyers__name')
-                .annotate(t=Sum('approved_amount'))
-        }
+        buyer_budget_map = {}
+        if season_filter:
+            pr_qs = SubCategoryPriceRange.objects.filter(subcategory__buyers__isnull=False, season__name=season_filter)
+            buyer_budget_map = {
+                row['subcategory__buyers__name']: float(row['t'] or 0)
+                for row in pr_qs
+                    .values('subcategory__buyers__name')
+                    .annotate(t=Sum('approved_amount'))
+            }
 
         for row in rows:
             name     = row['buyer__name'] or '—'
@@ -2408,14 +2841,13 @@ def export_buyer_report_excel(request):
 
     # ── Sheet 3: PO List ───────────────────────────────────────────────────
     ws3 = wb.create_sheet('PO List')
-    headers3 = ['PO Number', 'Date', 'Type', 'Season', 'Buyer', 'Vendor', 'Quantity', 'Value (₹)']
+    headers3 = ['PO Number', 'Date', 'Season', 'Buyer', 'Vendor', 'Quantity', 'Value (₹)']
     ws3.append(headers3)
     style_header_row(ws3, 1, len(headers3))
     for po in data['po_list']:
         ws3.append([
             po['po_number'],
             str(po['po_date']) if po['po_date'] else '',
-            po['po_type'],
             po['season'] or '',
             po['buyer__name'] or '',
             po['vendor__vendor_name'] or '',
@@ -2439,6 +2871,28 @@ def export_buyer_report_excel(request):
         ])
     auto_width(ws4)
 
+    # ── Sheet 5: Budget Details ───────────────────────────────────────────
+    ws5 = wb.create_sheet('Budget Details')
+    headers5 = [
+        'SubCategory', 'CH4 Code', 'Sales Price Range (₹)', 'Buying Price Range (₹)',
+        'Approved Budget (₹)', 'Quantity Set', 'Spent Amount (₹)', 'Spent Quantity', 'Balance (₹)'
+    ]
+    ws5.append(headers5)
+    style_header_row(ws5, 1, len(headers5))
+    for bd in data.get('budget_details', []):
+        ws5.append([
+            bd['subcat'],
+            bd['ch4_code'],
+            bd['sales_range'],
+            bd['buying_range'],
+            bd['approved_amount'],
+            bd['approved_quantity'],
+            bd['spent_amount'],
+            bd['spent_quantity'],
+            bd['balance'],
+        ])
+    auto_width(ws5)
+
     # ── filename & response ────────────────────────────────────────────────
     fname = f"buyer_report_{buyer_name or 'all'}_{season_filter or 'all'}.xlsx".replace(' ', '_')
     response = HttpResponse(
@@ -2447,4 +2901,206 @@ def export_buyer_report_excel(request):
     response['Content-Disposition'] = f'attachment; filename="{fname}"'
     wb.save(response)
     return response
+
+
+@login_required
+def buying_report(request):
+    if not request.user.is_staff:
+        messages.error(request, "Only admin users can access reports.")
+        return redirect('po_sheet')
+
+    buyer_name = request.GET.get('buyer', '')
+    po_num = request.GET.get('po_num', '')
+    vendor_code = request.GET.get('vendor', '')
+    subcat_id = request.GET.get('subcategory', '')
+    city_filter = request.GET.get('city', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+
+    items = PurchaseOrderItem.objects.filter(purchase_order__is_draft=False).select_related(
+        'purchase_order',
+        'purchase_order__buyer',
+        'purchase_order__vendor',
+        'subcategory'
+    )
+
+    if buyer_name:
+        items = items.filter(purchase_order__buyer__name=buyer_name)
+    if po_num:
+        items = items.filter(purchase_order__po_number__icontains=po_num)
+    if vendor_code:
+        items = items.filter(purchase_order__vendor__vendor_code=vendor_code)
+    if subcat_id:
+        items = items.filter(subcategory_id=subcat_id)
+    if city_filter:
+        items = items.filter(purchase_order__vendor__city=city_filter)
+    if date_from:
+        items = items.filter(purchase_order__po_date__gte=date_from)
+    if date_to:
+        items = items.filter(purchase_order__po_date__lte=date_to)
+
+    items = items.order_by('-purchase_order__po_date', '-purchase_order__po_number')
+
+    totals = items.aggregate(
+        total_qty=Sum('order_qty'),
+        total_value=Sum('tot_amt')
+    )
+
+    buyers = Buyer.objects.all().order_by('name')
+    vendors = fetch_mssql_all_vendors()
+    subcategories = SubCategory.objects.all().prefetch_related('buyers').order_by('name')
+    cities = fetch_mssql_cities()
+
+    selected_vendor_name = ""
+    if vendor_code:
+        loc_v = Vendor.objects.filter(vendor_code=vendor_code).first()
+        if loc_v:
+            selected_vendor_name = loc_v.vendor_name
+        else:
+            mssql_v = get_or_create_mssql_vendor(vendor_code)
+            if mssql_v:
+                selected_vendor_name = mssql_v.vendor_name
+
+    context = {
+        'items': items,
+        'totals': totals,
+        'buyers': buyers,
+        'vendors': vendors,
+        'subcategories': subcategories,
+        'cities': cities,
+        
+        'buyer_name': buyer_name,
+        'po_num': po_num,
+        'vendor_code': vendor_code,
+        'selected_vendor_name': selected_vendor_name,
+        'subcat_id': subcat_id,
+        'city_filter': city_filter,
+        'date_from': date_from,
+        'date_to': date_to,
+    }
+    return render(request, 'po_sheet/buying_report.html', context)
+
+
+@login_required
+def export_buying_report_excel(request):
+    if not request.user.is_staff:
+        messages.error(request, "Only admin users can export reports.")
+        return redirect('po_sheet')
+
+    import openpyxl
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    buyer_name = request.GET.get('buyer', '')
+    po_num = request.GET.get('po_num', '')
+    vendor_code = request.GET.get('vendor', '')
+    subcat_id = request.GET.get('subcategory', '')
+    city_filter = request.GET.get('city', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+
+    items = PurchaseOrderItem.objects.filter(purchase_order__is_draft=False).select_related(
+        'purchase_order',
+        'purchase_order__buyer',
+        'purchase_order__vendor',
+        'subcategory'
+    )
+
+    if buyer_name:
+        items = items.filter(purchase_order__buyer__name=buyer_name)
+    if po_num:
+        items = items.filter(purchase_order__po_number__icontains=po_num)
+    if vendor_code:
+        items = items.filter(purchase_order__vendor__vendor_code=vendor_code)
+    if subcat_id:
+        items = items.filter(subcategory_id=subcat_id)
+    if city_filter:
+        items = items.filter(purchase_order__vendor__city=city_filter)
+    if date_from:
+        items = items.filter(purchase_order__po_date__gte=date_from)
+    if date_to:
+        items = items.filter(purchase_order__po_date__lte=date_to)
+
+    items = items.order_by('-purchase_order__po_date', '-purchase_order__po_number')
+
+    wb = openpyxl.Workbook()
+
+    hdr_font    = Font(bold=True, color='FFFFFF', size=11)
+    hdr_fill    = PatternFill('solid', fgColor='4F46E5')
+    center      = Alignment(horizontal='center', vertical='center')
+    wrap_center = Alignment(horizontal='center', vertical='center', wrap_text=True)
+
+    def style_header_row(ws, row_num, col_count):
+        for c in range(1, col_count + 1):
+            cell = ws.cell(row=row_num, column=c)
+            cell.font      = hdr_font
+            cell.fill      = hdr_fill
+            cell.alignment = wrap_center
+
+    def auto_width(ws):
+        for col in ws.columns:
+            max_len = max((len(str(cell.value or '')) for cell in col), default=10)
+            ws.column_dimensions[get_column_letter(col[0].column)].width = min(max_len + 4, 40)
+
+    ws = wb.active
+    ws.title = 'Vendor Report'
+
+    ws.append(['Vendor Report'])
+    ws['A1'].font = Font(bold=True, size=14, color='4F46E5')
+    ws.append([])
+
+    ws.append(['Filter', 'Value'])
+    style_header_row(ws, 3, 2)
+    ws.append(['Buyer', buyer_name or 'All Buyers'])
+    ws.append(['PO Number', po_num or 'All'])
+    ws.append(['Vendor Code', vendor_code or 'All'])
+    ws.append(['SubCategory', SubCategory.objects.filter(id=subcat_id).values_list('name', flat=True).first() if subcat_id else 'All'])
+    ws.append(['City', city_filter or 'All'])
+    ws.append(['Date From', date_from or '—'])
+    ws.append(['Date To', date_to or '—'])
+    ws.append([])
+
+    headers = ['PO Number', 'PO Date', 'Vendor Name', 'Order Qty', 'Order Value (₹)', 'SubCategory', 'Vendor City']
+    ws.append(headers)
+    data_header_row = ws.max_row
+    style_header_row(ws, data_header_row, len(headers))
+
+    total_qty = 0
+    total_val = 0
+    for item in items:
+        qty = item.order_qty
+        val = float(item.tot_amt or 0)
+        total_qty += qty
+        total_val += val
+        ws.append([
+            item.purchase_order.po_number,
+            str(item.purchase_order.po_date) if item.purchase_order.po_date else '',
+            item.purchase_order.vendor.vendor_name if item.purchase_order.vendor else '',
+            qty,
+            val,
+            item.subcategory.name,
+            item.purchase_order.vendor.city if item.purchase_order.vendor else ''
+        ])
+
+    ws.append([])
+    ws.append(['Total', '', '', total_qty, total_val, '', ''])
+    total_row_num = ws.max_row
+    for c in range(1, len(headers) + 1):
+        cell = ws.cell(row=total_row_num, column=c)
+        cell.font = Font(bold=True)
+        if c in (4, 5):
+            cell.alignment = Alignment(horizontal='right')
+
+    auto_width(ws)
+
+    fname = f"buying_report.xlsx"
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{fname}"'
+    wb.save(response)
+    return response
+
+
+
 

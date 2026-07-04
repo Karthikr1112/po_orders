@@ -964,8 +964,11 @@
             </button>
             <div class="collapse {% if '/reports/' in request.path %}show{% endif %}" id="reportsSubmenu">
                 <div class="sb-submenu">
-                    <a href="{% url 'buyer_report' %}" class="sb-link">
+                    <a href="{% url 'buyer_report' %}" class="sb-link {% if request.resolver_match.url_name == 'buyer_report' %}active{% endif %}">
                         <i class="bi bi-person-lines-fill"></i> Buyer Report
+                    </a>
+                    <a href="{% url 'buying_report' %}" class="sb-link {% if request.resolver_match.url_name == 'buying_report' %}active{% endif %}">
+                        <i class="bi bi-building"></i> Vendor Report
                     </a>
                 </div>
             </div>
@@ -973,6 +976,9 @@
 
             {% if user.is_staff %}
             <div class="sb-nav-label">Admin Menu</div>
+            <a href="{% url 'ratio_manager' %}" class="sb-link">
+                <i class="bi bi-percent"></i> Ratio Manager
+            </a>
             <a href="{% url 'size_manager' %}" class="sb-link">
                 <i class="bi bi-rulers"></i> Size Manager
             </a>
@@ -1044,8 +1050,11 @@
             </button>
             <div class="collapse {% if '/reports/' in request.path %}show{% endif %}" id="reportsSubmenuMobile">
                 <div class="sb-submenu mb-1">
-                    <a href="{% url 'buyer_report' %}" class="sb-link">
+                    <a href="{% url 'buyer_report' %}" class="sb-link {% if request.resolver_match.url_name == 'buyer_report' %}active{% endif %}">
                         <i class="bi bi-person-lines-fill"></i> Buyer Report
+                    </a>
+                    <a href="{% url 'buying_report' %}" class="sb-link {% if request.resolver_match.url_name == 'buying_report' %}active{% endif %}">
+                        <i class="bi bi-building"></i> Vendor Report
                     </a>
                 </div>
             </div>
@@ -1053,6 +1062,9 @@
 
             {% if user.is_staff %}
             <div class="sb-nav-label text-muted small uppercase fw-bold mb-2">Admin Menu</div>
+            <a href="{% url 'ratio_manager' %}" class="sb-link mb-2">
+                <i class="bi bi-percent"></i> Ratio Manager
+            </a>
             <a href="{% url 'size_manager' %}" class="sb-link mb-2">
                 <i class="bi bi-rulers"></i> Size Manager
             </a>

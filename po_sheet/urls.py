@@ -26,6 +26,11 @@ urlpatterns = [
     path('records/', views.all_records, name='all_records'),
     path('export-po-csv/<int:po_id>/', views.export_po_csv, name='export_po_csv'),
     
+    # Ratio Manager
+    path('ratio-manager/', views.ratio_manager, name='ratio_manager'),
+    path('save-ratio/', views.save_ratio, name='save_ratio'),
+    path('delete-ratio/<int:ratio_id>/', views.delete_ratio, name='delete_ratio'),
+
     # Size Manager
     path('size-manager/', views.size_manager, name='size_manager'),
     path('get-subcategory-sizes/<str:subcategory_id>/', views.get_subcategory_sizes, name='get_subcategory_sizes'),
@@ -42,5 +47,7 @@ urlpatterns = [
     # Reports
     path('reports/buyer/', views.buyer_report, name='buyer_report'),
     path('reports/buyer/export/', views.export_buyer_report_excel, name='export_buyer_report_excel'),
+    path('reports/buying/', views.buying_report, name='buying_report'),
+    path('reports/buying/export/', views.export_buying_report_excel, name='export_buying_report_excel'),
 ]
 

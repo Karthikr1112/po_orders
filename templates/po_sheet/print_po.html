@@ -51,6 +51,20 @@
         .btn-print:hover {
             background: #334155;
         }
+        .btn-pdf {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        .btn-pdf:hover {
+            background: #1d4ed8;
+        }
         
         /* Watermark styling for draft PO */
         {% if po.status == 'draft' %}
@@ -73,7 +87,9 @@
             max-width: 800px;
             margin: 0 auto;
             background: white;
-            padding: 0;
+            padding: 15px;
+            border: 1.5px solid #0f172a;
+            box-sizing: border-box;
         }
         .header-table {
             width: 100%;
@@ -315,7 +331,9 @@
             .po-container {
                 max-width: 100%;
                 width: 100%;
-                padding: 0;
+                padding: 15px;
+                border: 1.5px solid #000;
+                box-sizing: border-box;
             }
             .print-footer {
                 display: flex !important;
@@ -342,7 +360,10 @@
         <div class="print-tips-banner">
             <strong>💡 Professional Printing Tip:</strong> Set layout to <strong>Portrait</strong>, check <strong>Background graphics</strong>, and uncheck <strong>Headers and footers</strong> in the print settings to use our custom A4 page numbers.
         </div>
-        <button class="btn-print" onclick="window.print()">Print Document</button>
+        <div style="display: flex; gap: 8px;">
+            <button class="btn-print" onclick="window.print()">Print Document</button>
+            <button class="btn-pdf" id="btnSavePdf">Save as PDF</button>
+        </div>
     </div>
 
     <div class="po-container">
@@ -350,11 +371,15 @@
         <table class="header-table">
             <tr>
                 <td>
-                    <div class="company-name">JEYARAMA STORES PVT. LTD.</div>
-                    <div class="company-group">JEYACHANDRAN GROUP</div>
+                    <div class="company-name" style="font-size: 16pt; font-weight: 800; color: #0f172a; line-height: 1.1;">RAMACHANDRAN</div>
+                    <div class="company-group" style="font-size: 9pt; font-weight: 600; color: #475569; margin-top: 2px;">(A DIVISION OF JEYACHANDRAN RETAIL PVT LTD)</div>
+                    <div style="font-size: 8pt; color: #64748b; margin-top: 4px; font-weight: 500;">
+                        <strong>REGD. OFFICE:</strong> NO. 33 & 34, RAMESWARAM STREET, T. NAGAR CHENNAI – 600 017
+                    </div>
                 </td>
-                <td class="header-meta">
-                    <strong>GSTIN:</strong> 33AAAAA0000A1Z5<br>
+                <td class="header-meta" style="text-align: right; font-size: 8.5pt; color: #334155; line-height: 1.45;">
+                    <strong>GSTN:</strong> 32AACCS3808F1ZR<br>
+                    <strong>CIN:</strong> U17120TN1980PTC053932<br>
                     <strong>Date:</strong> {{ today }}<br>
                     <strong>Printed:</strong> {{ print_time }}
                 </td>
@@ -422,8 +447,7 @@
             <thead>
                 <tr>
                     <th style="width: 4%">S.No</th>
-                    <th style="width: 25%">SubCategory</th>
-                    <th style="width: 8%">Type</th>
+                    <th style="width: 33%">SubCategory</th>
                     <th style="width: 18%">Sizes</th>
                     <th style="width: 8%">Ord Qty</th>
                     <th style="width: 10%">Price(₹)</th>
@@ -437,10 +461,11 @@
                 <tr>
                     <td>{{ forloop.counter }}</td>
                     <td class="left">{{ item.subcategory.name }}</td>
-                    <td>{{ item.item_type }}</td>
-                    <td class="left" style="font-size: 8pt; color: #475569;">
+                    <td class="left" style="font-size: 8pt; vertical-align: middle;">
                         {% for sz, qty in item.size_allocations.items %}
-                            {% if not forloop.first %}, {% endif %}{{ sz }}-{{ qty }}
+                            <span style="display: inline-block; margin: 1px 3px 1px 0; border: 1px solid #cbd5e1; padding: 1px 4px; border-radius: 3px; background-color: #f8fafc; color: #0f172a; white-space: nowrap;">
+                                Sz {{ sz }}: <strong>{{ qty }}</strong>
+                            </span>
                         {% empty %}
                             —
                         {% endfor %}
@@ -456,7 +481,6 @@
                 <tr class="empty-row">
                     <td>{{ i }}</td>
                     <td class="left">&nbsp;</td>
-                    <td>&nbsp;</td>
                     <td>&nbsp;</td>
                     <td>&nbsp;</td>
                     <td>&nbsp;</td>
@@ -511,6 +535,9 @@
         <table class="signatures-container">
             <tr>
                 <td>
+                    {% if po.buyer %}
+                    <div style="font-size: 8.5pt; font-weight: bold; color: #1e293b; margin-bottom: 5px;">{{ po.buyer.name }}</div>
+                    {% endif %}
                     <div class="sig-line"></div>
                     <div class="sig-label">Prepared By</div>
                 </td>
@@ -537,5 +564,30 @@
         <div class="page-number"></div>
     </div>
 
+    <!-- html2pdf dependency for client-side PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script>
+        document.getElementById('btnSavePdf').addEventListener('click', function() {
+            // Temporarily hide print settings banner container
+            const btnContainer = document.querySelector('.print-btn-container');
+            btnContainer.style.display = 'none';
+
+            const element = document.querySelector('.po-container');
+            const opt = {
+                margin:       10,
+                filename:     'PO_{{ po.po_number }}.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                btnContainer.style.display = 'flex';
+            }).catch(err => {
+                console.error('PDF generation error:', err);
+                btnContainer.style.display = 'flex';
+            });
+        });
+    </script>
 </body>
 </html>

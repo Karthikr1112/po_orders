@@ -571,7 +571,11 @@
                 <div class="rec-by">
                     <span class="rec-by-badge">
                         <i class="bi bi-person-fill"></i>
-                        {{ po.created_by.get_full_name|default:po.created_by.username }}
+                        {% if po.created_by %}
+                            {{ po.created_by.get_full_name|default:po.created_by.username }}
+                        {% else %}
+                            System
+                        {% endif %}
                     </span>
                 </div>
 

@@ -326,7 +326,7 @@
 
     function confirmDelete(id, username) {
         document.getElementById('deleteUsername').innerText = username;
-        document.getElementById('deleteForm').action = `/delete-user/${id}/`;
+        document.getElementById('deleteForm').action = "{% url 'delete_user' user_id=99999 %}".replace('99999', id);
         
         const deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
         deleteModal.show();

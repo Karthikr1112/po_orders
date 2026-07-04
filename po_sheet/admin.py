@@ -11,7 +11,20 @@ from .models import (
     Buyer,
     Season,
     SubCategoryPriceRange,
+    SubCategoryRatio,
+    RatioType,
 )
+
+@admin.register(RatioType)
+class RatioTypeAdmin(admin.ModelAdmin):
+    list_display = ("name",)
+    search_fields = ("name",)
+
+@admin.register(SubCategoryRatio)
+class SubCategoryRatioAdmin(admin.ModelAdmin):
+    list_display = ("vendor", "buyer", "subcategory", "ratio_type", "ratio_data", "updated_at")
+    search_fields = ("subcategory__name", "vendor__vendor_name", "buyer__name", "ratio_type__name")
+    list_filter = ("subcategory", "vendor", "buyer", "ratio_type")
 
 # Register Season
 @admin.register(Season)
@@ -77,6 +90,7 @@ class PurchaseOrderAdmin(admin.ModelAdmin):
         "buyer",
         "agent",
         "vendor",
+        "ratio_type",
         "is_draft",
         "total_quantity",
         "grand_total",
@@ -84,7 +98,7 @@ class PurchaseOrderAdmin(admin.ModelAdmin):
         "created_at",
     )
     search_fields = ("po_number", "season", "buyer__name", "agent", "vendor__vendor_name")
-    list_filter = ("is_draft", "po_date", "po_type")
+    list_filter = ("is_draft", "po_date", "po_type", "ratio_type")
     readonly_fields = ("total_quantity", "grand_total", "created_at", "updated_at")
     inlines = [PurchaseOrderItemInline]
 
@@ -92,9 +106,9 @@ class PurchaseOrderAdmin(admin.ModelAdmin):
 @admin.register(SubCategoryPriceRange)
 class SubCategoryPriceRangeAdmin(admin.ModelAdmin):
     list_display = (
-        "subcategory", "sales_from_range", "sales_to_range",
+        "subcategory", "season", "sales_from_range", "sales_to_range",
         "buying_from_range", "buying_to_range",
         "approved_amount", "approved_quantity",
     )
     search_fields = ("subcategory__name", "subcategory__ch4_code")
-    list_filter = ("subcategory",)
+    list_filter = ("subcategory", "season")

@@ -584,10 +584,10 @@
                 </button>
             </div>
             <div class="sm-form-body">
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;">
+                <div class="row row-cols-1 row-cols-md-2 g-3">
 
                     <!-- Subcategory search -->
-                    <div>
+                    <div class="col">
                         <label class="form-label-sm"><i class="bi bi-tag"></i>Subcategory</label>
                         <div style="position:relative;">
                             <input type="text" class="f-input" id="sizeSubcategorySearch"
@@ -601,7 +601,7 @@
                     </div>
 
                     <!-- Size input -->
-                    <div>
+                    <div class="col">
                         <label class="form-label-sm"><i class="bi bi-plus-circle"></i>Sizes to Add</label>
                         <div style="position:relative;">
                             <input type="text" class="f-input" id="manualSizeInput"
@@ -633,8 +633,8 @@
     <!-- ── Search bar ── -->
     <div class="sm-search-wrap">
         <form method="get" action="">
-            <div style="display:flex; gap:.75rem; align-items:center;">
-                <div style="position:relative; flex:1;">
+            <div style="display:flex; gap:.75rem; align-items:center; flex-wrap:wrap;">
+                <div style="position:relative; flex:1; min-width:260px;">
                     <i class="bi bi-search sm-search-icon"></i>
                     <input type="text" name="q" class="sm-search-input"
                         placeholder="Search subcategories by name or CH4 code…"
@@ -782,10 +782,11 @@ const URLS = {
     addSubcategorySizes: "{% url 'add_subcategory_sizes' %}",
     removeSubcategorySize: "{% url 'remove_subcategory_size' %}",
 };
-const CSRF = (()=>{
-    const m = document.cookie.match(/csrftoken=([^;]+)/);
-    return m ? m[1] : '';
-})();
+// Hidden CSRF input injected by Django — more reliable than cookie parsing
+const _csrfInput = document.createElement('form');
+_csrfInput.innerHTML = '{% csrf_token %}';
+const CSRF = (_csrfInput.querySelector('[name=csrfmiddlewaretoken]') || {}).value ||
+             (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
 
 // ── Toast ────────────────────────────────────────────────────
 function toast(msg, type='success') {
@@ -909,7 +910,7 @@ function renderSizeList(sizes) {
 }
 
 function loadSizes(subcatId) {
-    fetch(`/get-subcategory-sizes/${subcatId}/`)
+    fetch(URLS.subcategorySizes.replace('__ID__', subcatId))
         .then(r=>r.json())
         .then(res=>{
             currentSizes = res.success ? res.sizes : [];
@@ -994,7 +995,7 @@ function saveSizes() {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving…';
 
-    fetch('/add-subcategory-sizes/', {
+    fetch(URLS.addSubcategorySizes, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
         body: JSON.stringify({ subcategory_id: subcatId, sizes })
@@ -1042,7 +1043,7 @@ document.querySelectorAll('.remove-inline').forEach(btn => {
 });
 
 function removeSize(subcatId, sizeId, sizeName, updatePanel) {
-    fetch('/remove-subcategory-size/', {
+    fetch(URLS.removeSubcategorySize, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
         body: JSON.stringify({ subcategory_id: subcatId, size_id: sizeId })

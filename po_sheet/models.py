@@ -110,6 +110,9 @@ class PurchaseOrder(models.Model):
     vendor = models.ForeignKey(
         Vendor, on_delete=models.PROTECT, null=True, blank=True
     )
+    ratio_type = models.ForeignKey(
+        "RatioType", on_delete=models.SET_NULL, null=True, blank=True
+    )
     is_draft = models.BooleanField(default=True, db_index=True)
     delivery_schedules = models.JSONField(default=list, blank=True, null=True)
     notes = models.TextField(blank=True)
@@ -234,10 +237,13 @@ class PurchaseOrderItem(models.Model):
 class SubCategoryPriceRange(models.Model):
     # ForeignKey auto-creates index on subcategory_id.
     # The unique_together below creates a compound index on
-    # (subcategory_id, sales_from_range, sales_to_range) which also
+    # (subcategory_id, season_id, sales_from_range, sales_to_range) which also
     # serves as a covering prefix for filter(subcategory=sc) queries.
     subcategory = models.ForeignKey(
         SubCategory, on_delete=models.CASCADE, related_name="price_ranges"
+    )
+    season = models.ForeignKey(
+        Season, on_delete=models.CASCADE, related_name="price_ranges", null=True, blank=True
     )
     sales_from_range = models.DecimalField(max_digits=12, decimal_places=2)
     sales_to_range = models.DecimalField(max_digits=12, decimal_places=2)
@@ -256,8 +262,8 @@ class SubCategoryPriceRange(models.Model):
     class Meta:
         verbose_name = "SubCategory Price Range"
         verbose_name_plural = "SubCategory Price Ranges"
-        # Creates compound index (subcategory_id, sales_from_range, sales_to_range)
-        unique_together = [("subcategory", "sales_from_range", "sales_to_range")]
+        # Creates compound index (subcategory_id, season_id, sales_from_range, sales_to_range)
+        unique_together = [("subcategory", "season", "sales_from_range", "sales_to_range")]
 
     def __str__(self):
         return (
@@ -265,3 +271,38 @@ class SubCategoryPriceRange(models.Model):
             f"Sales: {self.sales_from_range}–{self.sales_to_range} | "
             f"Buying: {self.buying_from_range}–{self.buying_to_range}"
         )
+
+
+class RatioType(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+
+    class Meta:
+        verbose_name = "Ratio Type"
+        verbose_name_plural = "Ratio Types"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class SubCategoryRatio(models.Model):
+    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE, related_name="ratios", null=True, blank=True)
+    buyer = models.ForeignKey(Buyer, on_delete=models.CASCADE, related_name="ratios", null=True, blank=True)
+    subcategory = models.ForeignKey(SubCategory, on_delete=models.CASCADE, related_name="ratios")
+    ratio_type = models.ForeignKey(RatioType, on_delete=models.CASCADE, related_name="ratios", null=True, blank=True)
+    ratio_data = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Sub-Category Ratio"
+        verbose_name_plural = "Sub-Category Ratios"
+        unique_together = [("vendor", "buyer", "subcategory", "ratio_type")]
+
+    def __str__(self):
+        v_name = self.vendor.vendor_name if self.vendor else "All Vendors"
+        b_name = self.buyer.name if self.buyer else "All Buyers"
+        t_name = self.ratio_type.name if self.ratio_type else "Default"
+        return f"{v_name} - {b_name} - {self.subcategory.name} ({t_name})"
+
+

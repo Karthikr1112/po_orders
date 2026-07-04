@@ -1,0 +1,487 @@
+{% extends 'po_sheet/base.html' %}
+{% block title %}Vendor Report{% endblock %}
+
+{% block extra_css %}
+<style>
+  .rpt-card {
+    border: none; border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.07);
+    transition: transform .2s, box-shadow .2s;
+  }
+  .rpt-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+
+  .stat-icon {
+    width: 50px; height: 50px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; flex-shrink: 0;
+  }
+  .stat-val { font-size: 1.6rem; font-weight: 800; color: #1e293b; line-height: 1.1; }
+  .stat-lbl { font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .07em; }
+
+  .sec-title {
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .1em; color: #94a3b8; margin-bottom: .9rem;
+    display: flex; align-items: center; gap: .5rem;
+  }
+  .sec-title::after { content:''; flex:1; height:1px; background:#f1f5f9; }
+
+  .rpt-box { background: #fff; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.07); padding: 1.5rem; }
+
+  .filter-bar { background:#fff; border-radius:16px; box-shadow:0 2px 12px rgba(0,0,0,.06); padding:1.25rem 1.5rem; margin-bottom:1.5rem; }
+
+  .export-btn {
+    background: linear-gradient(135deg,#10b981,#059669);
+    color:#fff; border:none; border-radius:12px;
+    padding:.55rem 1.2rem; font-weight:700; font-size:.875rem;
+    display:inline-flex; align-items:center; gap:.45rem;
+    box-shadow:0 4px 12px rgba(16,185,129,.3);
+    transition:all .2s; text-decoration:none;
+  }
+  .export-btn:hover { transform:translateY(-2px); box-shadow:0 6px 18px rgba(16,185,129,.4); color:#fff; }
+
+  .table-sheet thead th { white-space: nowrap; }
+  .table-sheet tbody td { font-size:.875rem; vertical-align:middle; }
+
+  /* Custom Premium Select Dropdown Styling */
+  .custom-select-container {
+    position: relative;
+    width: 100%;
+  }
+  .custom-select-input {
+    cursor: pointer;
+    background-color: #fff !important;
+    padding-right: 30px !important;
+  }
+  .custom-select-arrow {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    pointer-events: none;
+    font-size: 0.8rem;
+    z-index: 10;
+  }
+  .custom-select-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 8px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 1050;
+    margin-top: 4px;
+    padding: 4px;
+  }
+  .custom-select-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: #1e293b;
+    border-radius: 6px;
+    transition: background-color 0.15s, color 0.15s;
+    text-align: left;
+  }
+  .custom-select-option:hover {
+    background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%) !important;
+    color: #fff !important;
+  }
+  .custom-select-option.selected {
+    background-color: #f1f5f9;
+    font-weight: 600;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="padding:24px;">
+
+  <!-- PAGE HEADER -->
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+    <div>
+      <h4 class="fw-800 mb-0" style="color:#1e293b; font-weight:800;">
+        <i class="bi bi-building me-2" style="color:#4f46e5;"></i>Vendor Report
+      </h4>
+      <p class="mb-0 mt-1" style="color:#94a3b8; font-size:.85rem;">Submitted PO detailed items breakdown with multi-column filtering</p>
+    </div>
+    <!-- Export button carries current filters -->
+    <a href="{% url 'export_buying_report_excel' %}?buyer={{ buyer_name }}&po_num={{ po_num }}&vendor={{ vendor_code }}&subcategory={{ subcat_id }}&city={{ city_filter }}&date_from={{ date_from }}&date_to={{ date_to }}"
+       class="export-btn">
+      <i class="bi bi-file-earmark-excel"></i> Export Excel
+    </a>
+  </div>
+
+  <!-- FILTER BAR -->
+  <div class="filter-bar">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-12 col-md-3">
+        <label class="form-label fw-bold small text-muted text-uppercase" style="font-size:0.75rem;">Buyer</label>
+        <select name="buyer" class="form-select form-select-sm">
+          <option value="">All Buyers</option>
+          {% for b in buyers %}
+          <option value="{{ b.name }}" {% if buyer_name == b.name %}selected{% endif %}>{{ b.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12 col-md-2">
+        <label class="form-label fw-bold small text-muted text-uppercase" style="font-size:0.75rem;">PO Number</label>
+        <input type="text" name="po_num" class="form-control form-control-sm" placeholder="PO Number" value="{{ po_num }}">
+      </div>
+      <div class="col-12 col-md-3">
+        <label class="form-label fw-bold small text-muted text-uppercase" style="font-size:0.75rem;">Vendor</label>
+        <div class="custom-select-container">
+          <input type="text" id="reportVendorSelect" class="form-control form-control-sm custom-select-input" placeholder="All Vendors" value="{{ selected_vendor_name }}" data-selected-text="{{ selected_vendor_name }}" data-selected-value="{{ vendor_code }}" autocomplete="off">
+          <input type="hidden" name="vendor" id="vendorCodeInput" value="{{ vendor_code }}">
+          <span class="custom-select-arrow"><i class="bi bi-chevron-down"></i></span>
+          <div class="custom-select-dropdown d-none" id="reportVendorDropdown">
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-md-2">
+        <label class="form-label fw-bold small text-muted text-uppercase" style="font-size:0.75rem;">SubCategory</label>
+        <select name="subcategory" class="form-select form-select-sm">
+          <option value="">All SubCategories</option>
+          {% for s in subcategories %}
+          <option value="{{ s.id }}" data-buyers="{% for b in s.buyers.all %}{{ b.name }}{% if not forloop.last %},{% endif %}{% endfor %}" {% if subcat_id == s.id|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12 col-md-2">
+        <label class="form-label fw-bold small text-muted text-uppercase" style="font-size:0.75rem;">Vendor City</label>
+        <div class="custom-select-container">
+          <input type="text" id="reportCitySelect" class="form-control form-control-sm custom-select-input" placeholder="All Cities" value="{{ city_filter }}" data-selected-text="{{ city_filter }}" data-selected-value="{{ city_filter }}" autocomplete="off">
+          <input type="hidden" name="city" id="cityInput" value="{{ city_filter }}">
+          <span class="custom-select-arrow"><i class="bi bi-chevron-down"></i></span>
+          <div class="custom-select-dropdown d-none" id="reportCityDropdown">
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label fw-bold small text-muted text-uppercase" style="font-size:0.75rem;">Date From</label>
+        <input type="date" name="date_from" class="form-control form-control-sm" value="{{ date_from }}">
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label fw-bold small text-muted text-uppercase" style="font-size:0.75rem;">Date To</label>
+        <input type="date" name="date_to" class="form-control form-control-sm" value="{{ date_to }}">
+      </div>
+      <div class="col-12 col-md-2 d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-funnel"></i> Apply</button>
+        <a href="{% url 'buying_report' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-x-lg"></i></a>
+      </div>
+    </form>
+  </div>
+
+  <!-- SUMMARY CARDS -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-4">
+      <div class="rpt-card p-3 h-100" style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);">
+        <div class="d-flex align-items-center gap-3">
+          <div class="stat-icon" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);">
+            <i class="bi bi-list-ol text-white"></i>
+          </div>
+          <div>
+            <div class="stat-val">{{ items|length }}</div>
+            <div class="stat-lbl">Filtered Items</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4">
+      <div class="rpt-card p-3 h-100" style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);">
+        <div class="d-flex align-items-center gap-3">
+          <div class="stat-icon" style="background:linear-gradient(135deg,#10b981,#059669);">
+            <i class="bi bi-currency-rupee text-white"></i>
+          </div>
+          <div>
+            <div class="stat-val" style="font-size:1.3rem;">₹{{ totals.total_value|default:0|floatformat:2 }}</div>
+            <div class="stat-lbl">Total Value</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4">
+      <div class="rpt-card p-3 h-100" style="background:linear-gradient(135deg,#eff6ff,#dbeafe);">
+        <div class="d-flex align-items-center gap-3">
+          <div class="stat-icon" style="background:linear-gradient(135deg,#3b82f6,#2563eb);">
+            <i class="bi bi-box-seam text-white"></i>
+          </div>
+          <div>
+            <div class="stat-val">{{ totals.total_qty|default:0 }}</div>
+            <div class="stat-lbl">Total Quantity</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DETAILS TABLE -->
+  <div class="rpt-box mb-4">
+    <div class="sec-title"><i class="bi bi-table" style="color:#4f46e5;"></i> PO Items Listing</div>
+    {% if items %}
+    <div class="table-responsive">
+      <table class="table table-sheet mb-0" id="buyingReportTable">
+        <thead>
+          <tr>
+            <th>PO Number</th>
+            <th>PO Date</th>
+            <th>Vendor Name</th>
+            <th class="text-end">Order Qty</th>
+            <th class="text-end">Order Value (₹)</th>
+            <th>SubCategory</th>
+            <th>Vendor City</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+          <tr>
+            <td>
+              <span style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);color:#4f46e5;font-weight:700;padding:.2em .6em;border-radius:8px;font-size:.82rem;">
+                {{ item.purchase_order.po_number }}
+              </span>
+            </td>
+            <td style="color:#64748b;">{{ item.purchase_order.po_date|date:"Y-m-d"|default:"—" }}</td>
+            <td class="fw-semibold" style="color:#1e293b;">{{ item.purchase_order.vendor.vendor_name|default:"—" }}</td>
+            <td class="text-end fw-bold" style="color:#2563eb;">{{ item.order_qty }}</td>
+            <td class="text-end fw-bold" style="color:#10b981;">₹{{ item.tot_amt|floatformat:2 }}</td>
+            <td>
+              <span class="badge bg-light text-dark border fw-bold">{{ item.subcategory.name }}</span>
+            </td>
+            <td>
+              <span class="badge bg-info text-white fw-bold" style="background-color:#06b6d4 !important;">{{ item.purchase_order.vendor.city|default:"—" }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5" style="color:#94a3b8;">
+      <i class="bi bi-inbox" style="font-size:2.5rem; opacity:.3;"></i>
+      <p class="mt-3 mb-0" style="font-weight:600;">No items found matching the selected filters.</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+$(document).ready(function() {
+  if ($('#buyingReportTable tbody tr').length > 0) {
+    $('#buyingReportTable').DataTable({
+      pageLength: 25,
+      order: [[1, 'desc']],
+      language: { search: 'Search List:' },
+      dom: '<"d-flex justify-content-between align-items-center mb-2"lf>rtip',
+    });
+  }
+
+  // Dynamic subcategory filtering based on selected buyer
+  const $buyerSelect = $('select[name="buyer"]');
+  const $subcatSelect = $('select[name="subcategory"]');
+  const originalSubcatHtml = $subcatSelect.html();
+
+  function filterSubcategories() {
+    const selectedBuyer = $buyerSelect.val();
+    const currentSelectedSubcat = $subcatSelect.val();
+    
+    $subcatSelect.html(originalSubcatHtml);
+    
+    if (selectedBuyer) {
+      $subcatSelect.find('option').each(function() {
+        const val = $(this).val();
+        if (!val) return; // Keep "All SubCategories"
+        
+        const buyersStr = $(this).attr('data-buyers') || '';
+        const buyers = buyersStr.split(',');
+        if (!buyers.includes(selectedBuyer)) {
+          $(this).remove();
+        }
+      });
+    }
+    
+    if ($subcatSelect.find(`option[value="${currentSelectedSubcat}"]`).length > 0) {
+      $subcatSelect.val(currentSelectedSubcat);
+    } else {
+      $subcatSelect.val('');
+    }
+  }
+
+  $buyerSelect.on('change', filterSubcategories);
+  filterSubcategories(); // Apply on page load
+
+  // Autocomplete / Searchable dropdown logic for Vendors
+  let vendorXhr = null;
+  function fetchVendors(inputEl, query) {
+    if (vendorXhr) vendorXhr.abort();
+    let dropdown = $(inputEl).closest('.custom-select-container').find('.custom-select-dropdown');
+    dropdown.html('<div class="p-2 text-muted small"><i class="bi bi-hourglass-split me-1"></i>Searching...</div>').removeClass('d-none');
+    
+    vendorXhr = $.ajax({
+      url: "{% url 'search_vendor' %}",
+      method: 'GET',
+      data: { q: query },
+      success: function(res) {
+        let html = `<div class="custom-select-option" data-value="" data-name="">All Vendors</div>`;
+        if (res.vendors && res.vendors.length > 0) {
+          html += res.vendors.slice(0, 10).map(v => `
+            <div class="custom-select-option"
+                 data-value="${v.code}"
+                 data-name="${v.name}">
+                 ${v.name} <span style="color:#94a3b8;font-size:.8em;">(${v.code})</span>
+            </div>
+          `).join('');
+          dropdown.html(html);
+        } else {
+          dropdown.html(html + '<div class="p-2 text-muted small">No vendors found</div>');
+        }
+      },
+      error: function(xhr, status, err) {
+        if (status !== 'abort') {
+          dropdown.html('<div class="p-2 text-muted small text-danger">Error loading vendors</div>');
+        }
+      }
+    });
+  }
+
+  $(document).on('focus click', '#reportVendorSelect', function() {
+    $('.custom-select-dropdown').addClass('d-none');
+    let dropdown = $(this).closest('.custom-select-container').find('.custom-select-dropdown');
+    $(this).val('');
+    fetchVendors(this, '');
+  });
+
+  $(document).on('input', '#reportVendorSelect', function() {
+    fetchVendors(this, $(this).val());
+  });
+
+  $(document).on('mousedown', '#reportVendorDropdown .custom-select-option', function(e) {
+    let val = $(this).data('value');
+    let txt = $(this).data('name') ? $(this).data('name') : $(this).text().trim();
+    let container = $(this).closest('.custom-select-container');
+    let input = container.find('.custom-select-input');
+    let hiddenInput = $('#vendorCodeInput');
+
+    input.val(txt === 'All Vendors' ? '' : txt);
+    hiddenInput.val(val);
+    input.data('selected-value', val);
+    input.data('selected-text', txt);
+
+    container.find('.custom-select-dropdown').addClass('d-none');
+  });
+
+  $(document).on('blur', '#reportVendorSelect', function() {
+    let self = this;
+    setTimeout(function() {
+      let val = $(self).val().trim();
+      let selectedVal = $('#vendorCodeInput').val() || '';
+      let prevText = $(self).data('selected-text') || '';
+      
+      if (!val) {
+        $(self).val('');
+        $('#vendorCodeInput').val('');
+        $(self).data('selected-value', '');
+        $(self).data('selected-text', '');
+      } else if (selectedVal) {
+        $(self).val(prevText);
+      } else {
+        $(self).val('');
+        $('#vendorCodeInput').val('');
+      }
+      $(self).closest('.custom-select-container').find('.custom-select-dropdown').addClass('d-none');
+    }, 200);
+  });
+
+  // Client-side City Search Autocomplete
+  const ALL_CITIES = [
+    {% for c in cities %}
+      "{{ c|escapejs }}",
+    {% endfor %}
+  ];
+
+  function renderCityDropdown(inputEl, query) {
+    let dropdown = $(inputEl).closest('.custom-select-container').find('.custom-select-dropdown');
+    let q = query.trim().toLowerCase();
+    
+    let html = `<div class="custom-select-option" data-value="" data-name="">All Cities</div>`;
+    
+    let filtered = ALL_CITIES;
+    if (q) {
+      filtered = ALL_CITIES.filter(city => city.toLowerCase().includes(q));
+    }
+    
+    if (filtered.length > 0) {
+      html += filtered.slice(0, 10).map(city => `
+        <div class="custom-select-option"
+             data-value="${city}"
+             data-name="${city}">
+             ${city}
+        </div>
+      `).join('');
+      dropdown.html(html).removeClass('d-none');
+    } else {
+      dropdown.html(html + '<div class="p-2 text-muted small">No cities found</div>').removeClass('d-none');
+    }
+  }
+
+  $(document).on('focus click', '#reportCitySelect', function() {
+    $('.custom-select-dropdown').addClass('d-none');
+    $(this).val('');
+    renderCityDropdown(this, '');
+  });
+
+  $(document).on('input', '#reportCitySelect', function() {
+    renderCityDropdown(this, $(this).val());
+  });
+
+  $(document).on('mousedown', '#reportCityDropdown .custom-select-option', function(e) {
+    let val = $(this).data('value');
+    let txt = $(this).data('name') ? $(this).data('name') : $(this).text().trim();
+    let container = $(this).closest('.custom-select-container');
+    let input = container.find('.custom-select-input');
+    let hiddenInput = $('#cityInput');
+
+    input.val(txt === 'All Cities' ? '' : txt);
+    hiddenInput.val(val);
+    input.data('selected-value', val);
+    input.data('selected-text', txt);
+
+    container.find('.custom-select-dropdown').addClass('d-none');
+  });
+
+  $(document).on('blur', '#reportCitySelect', function() {
+    let self = this;
+    setTimeout(function() {
+      let val = $(self).val().trim();
+      let selectedVal = $('#cityInput').val() || '';
+      let prevText = $(self).data('selected-text') || '';
+      
+      if (!val) {
+        $(self).val('');
+        $('#cityInput').val('');
+        $(self).data('selected-value', '');
+        $(self).data('selected-text', '');
+      } else if (selectedVal) {
+        $(self).val(prevText);
+      } else {
+        $(self).val('');
+        $('#cityInput').val('');
+      }
+      $(self).closest('.custom-select-container').find('.custom-select-dropdown').addClass('d-none');
+    }, 200);
+  });
+
+  // Close dropdown on click outside
+  $(document).on('click', function(e) {
+    if (!$(e.target).closest('.custom-select-container').length) {
+      $('.custom-select-dropdown').addClass('d-none');
+    }
+  });
+});
+</script>
+{% endblock %}

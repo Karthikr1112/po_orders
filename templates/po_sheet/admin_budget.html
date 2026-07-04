@@ -278,7 +278,7 @@
                         <span class="custom-select-arrow"><i class="bi bi-chevron-down"></i></span>
                         <div class="custom-select-dropdown d-none" id="subcatDropdown">
                             {% for item in all_subcats_dropdown %}
-                            <div class="custom-select-option" data-id="{{ item.id }}" data-name="{{ item.name }}">{{ item.name }}</div>
+                            <div class="custom-select-option" data-id="{{ item.id }}" data-name="{{ item.name }}" data-page="{{ item.page }}">{{ item.name }}</div>
                             {% endfor %}
                         </div>
                     </div>
@@ -371,6 +371,9 @@
                                             <i class="bi bi-plus-lg" style="font-size: 0.75rem;"></i>
                                         </button>
                                     </div>
+                                    <div class="mt-2 pt-1 border-top w-100 text-end" style="font-size: 0.75rem; font-weight: 700; color: #64748b; height: 28px; display: flex; align-items: center; justify-content: flex-end;">
+                                        Total:
+                                    </div>
                                 </div>
                             </td>
                             <!-- Buying Price Range (₹) -->
@@ -390,6 +393,7 @@
                                             <i class="bi bi-plus-lg" style="font-size: 0.75rem;"></i>
                                         </button>
                                     </div>
+                                    <div class="mt-2 pt-1 border-top w-100" style="height: 28px;"></div>
                                 </div>
                             </td>
                             <!-- Approved Budget (per price range) -->
@@ -403,7 +407,9 @@
                                         style="width: 100px; border-color: #cbd5e1; color: #1e293b; font-size: 0.78rem; padding: 0.2rem 0.4rem; border-radius: 4px !important;"
                                         placeholder="0.00">
                                     {% endfor %}
-                                    <div style="height: 22px;"></div>
+                                    <div class="mt-2 pt-1 border-top w-100 text-end fw-bold text-dark inline-subcat-total-approved" style="font-size: 0.8rem; height: 28px; display: flex; align-items: center; justify-content: flex-end; padding-right: 4px;">
+                                        {{ item.approved_amount|floatformat:2 }}
+                                    </div>
                                 </div>
                             </td>
                             <!-- Quantity Set (per price range) -->
@@ -417,29 +423,35 @@
                                         style="width: 80px; border-color: #cbd5e1; color: #1e293b; font-size: 0.78rem; padding: 0.2rem 0.4rem; border-radius: 4px !important;"
                                         placeholder="0">
                                     {% endfor %}
-                                    <div style="height: 22px;"></div>
+                                    <div class="mt-2 pt-1 border-top w-100 text-end fw-bold text-dark inline-subcat-total-qty" style="font-size: 0.8rem; height: 28px; display: flex; align-items: center; justify-content: flex-end; padding-right: 4px;">
+                                        {{ item.approved_quantity }}
+                                    </div>
                                 </div>
                             </td>
                             <!-- Spent Amount (per price range) -->
                             <td class="text-end" style="vertical-align: top;">
                                 <div class="d-flex flex-column gap-1 align-items-end spent-amount-container">
                                     {% for pr in item.price_ranges %}
-                                    <div class="d-flex align-items-center justify-content-end fw-semibold text-warning" style="height: 28px; font-size: 0.8rem; padding-right: 4px;">
+                                    <div class="d-flex align-items-center justify-content-end fw-semibold text-warning inline-range-spent-text" data-range-id="{{ pr.id }}" data-spent="{{ pr.spent_amount }}" style="height: 28px; font-size: 0.8rem; padding-right: 4px;">
                                         ₹{{ pr.spent_amount|floatformat:2 }}
                                     </div>
                                     {% endfor %}
-                                    <div style="height: 22px;"></div>
+                                    <div class="mt-2 pt-1 border-top w-100 text-end fw-bold text-warning inline-subcat-total-spent" style="font-size: 0.8rem; height: 28px; display: flex; align-items: center; justify-content: flex-end; padding-right: 4px;">
+                                        ₹{{ item.spent_amount|floatformat:2 }}
+                                    </div>
                                 </div>
                             </td>
                             <!-- Balance (per price range) -->
                             <td class="text-end" style="vertical-align: top;">
                                 <div class="d-flex flex-column gap-1 align-items-end balance-amount-container">
                                     {% for pr in item.price_ranges %}
-                                    <div class="d-flex align-items-center justify-content-end fw-bold {% if pr.balance < 0 %}text-danger{% else %}text-success{% endif %}" style="height: 28px; font-size: 0.8rem; padding-right: 4px;">
+                                    <div class="d-flex align-items-center justify-content-end fw-bold {% if pr.balance < 0 %}text-danger{% else %}text-success{% endif %} inline-range-balance-text" data-range-id="{{ pr.id }}" data-balance="{{ pr.balance }}" style="height: 28px; font-size: 0.8rem; padding-right: 4px;">
                                         ₹{{ pr.balance|floatformat:2 }}
                                     </div>
                                     {% endfor %}
-                                    <div style="height: 22px;"></div>
+                                    <div class="mt-2 pt-1 border-top w-100 text-end fw-bold {% if item.balance_amount < 0 %}text-danger{% else %}text-success{% endif %} inline-subcat-total-balance" style="font-size: 0.8rem; height: 28px; display: flex; align-items: center; justify-content: flex-end; padding-right: 4px;">
+                                        ₹{{ item.balance_amount|floatformat:2 }}
+                                    </div>
                                 </div>
                             </td>
                             <td class="text-center">
@@ -560,29 +572,62 @@ const URLS = {
     updatePriceRange:  "{% url 'update_price_range' %}",
     addPriceRange:     "{% url 'add_price_range' %}",
     deletePriceRange:  "{% url 'delete_price_range' %}",
+    subcategoryRanges: "{% url 'get_subcategory_ranges' '__ID__' %}",
 };
 $(document).ready(function () {
     let subcatXhr = null;
 
     // ── Custom searchable subcategory dropdown ───────────────────────────────
-    function selectSubcat(id, name) {
+    function selectSubcat(id, name, page) {
         $('#subcatSelectedId').val(id);
         $('#subcatSearch').val(name);
         $('#subcatDropdown').addClass('d-none');
-        // Show details
-        if (id) {
+        if (!id) return;
+
+        const row = $(`#subcat-row-${id}`);
+        if (row.length) {
+            // Row is on this page — show it directly
             $('.subcategory-details-row').addClass('d-none');
-            $(`#subcat-row-${id}`).removeClass('d-none');
+            row.removeClass('d-none');
             $('#selectedSubcatTitle').text(name);
             $('#subcategoryDetailsCard').removeClass('d-none');
         } else {
-            $('.subcategory-details-row').addClass('d-none');
-            $('#subcategoryDetailsCard').addClass('d-none');
+            // Row is on a different page — navigate there with selected param
+            const url = new URL(window.location.href);
+            url.searchParams.set('page', page || 1);
+            url.searchParams.set('selected', id);
+            url.searchParams.set('selected_name', encodeURIComponent(name));
+            window.location.href = url.toString();
         }
     }
 
-    // Open dropdown and filter on input
-    $('#subcatSearch').on('focus input', function () {
+    // On page load: if ?selected=X in URL, show that subcategory automatically
+    const urlParams = new URLSearchParams(window.location.search);
+    const preSelected = urlParams.get('selected');
+    const preSelectedName = urlParams.get('selected_name');
+    if (preSelected) {
+        const row = $(`#subcat-row-${preSelected}`);
+        if (row.length) {
+            const name = preSelectedName ? decodeURIComponent(preSelectedName) : row.closest('tr').find('td:nth-child(2)').text();
+            $('#subcatSearch').val(name);
+            $('.subcategory-details-row').addClass('d-none');
+            row.removeClass('d-none');
+            $('#selectedSubcatTitle').text(name);
+            $('#subcategoryDetailsCard').removeClass('d-none');
+        }
+    }
+
+    // On focus: clear text so all options show for easy re-selection
+    let subcatLastName = '';
+    $('#subcatSearch').on('focus', function () {
+        subcatLastName = $(this).val();
+        $(this).val('');
+        $('#subcatDropdown .custom-select-option').show();
+        $('#subcatDropdown').removeClass('d-none');
+    });
+
+    // On input: filter options
+    $('#subcatSearch').on('input', function () {
         const q = $(this).val().toLowerCase();
         let any = false;
         $('#subcatDropdown .custom-select-option').each(function () {
@@ -593,9 +638,19 @@ $(document).ready(function () {
         if (any) $('#subcatDropdown').removeClass('d-none');
     });
 
-    // Select option on click
-    $(document).on('click', '#subcatDropdown .custom-select-option', function () {
-        selectSubcat($(this).data('id'), $(this).data('name'));
+    // On blur: restore old name if nothing new was selected
+    $('#subcatSearch').on('blur', function () {
+        setTimeout(() => {
+            if (!$(this).val()) {
+                $(this).val(subcatLastName);
+            }
+        }, 250);
+    });
+
+    // Select option — use mousedown so it fires before the global mousedown handler
+    $(document).on('mousedown', '#subcatDropdown .custom-select-option', function (e) {
+        e.stopImmediatePropagation();
+        selectSubcat($(this).data('id'), $(this).data('name'), $(this).data('page'));
     });
 
     // Close dropdown on outside click
@@ -604,12 +659,6 @@ $(document).ready(function () {
             $('#subcatDropdown').addClass('d-none');
         }
     });
-
-    // Auto-select the first subcategory on page load
-    const firstOpt = $('#subcatDropdown .custom-select-option').first();
-    if (firstOpt.length) {
-        selectSubcat(firstOpt.data('id'), firstOpt.data('name'));
-    }
 
     function fetchSubcategories(query) {
         if (subcatXhr) subcatXhr.abort();
@@ -684,6 +733,7 @@ $(document).ready(function () {
     }
 
     $(document).on('mousedown', '.custom-select-container .custom-select-option', function () {
+        if ($(this).closest('#subcatDropdown').length) return; // handled by separate handler
         const val = $(this).data('value');
         const id  = $(this).data('id');
         if (val) {
@@ -695,8 +745,14 @@ $(document).ready(function () {
             $('#modalNotes').val($(this).data('notes') || '');
             
             // Fetch ranges dynamically for search selection
+            const seasonName = $('#seasonSelect').val() ? $('#seasonSelect').find('option:selected').text().trim() : '';
+            const buyerId = $('#buyerSelect').val() || '';
             $.ajax({
-                url: `/get-subcategory-ranges/${id}/`,
+                url: URLS.subcategoryRanges.replace('__ID__', id),
+                data: {
+                    season: seasonName,
+                    buyer: buyerId
+                },
                 success(res) {
                     renderModalRanges(res.ranges || []);
                     $('#editBudgetModal').modal('show');
@@ -835,7 +891,8 @@ $(document).ready(function () {
                 'X-CSRFToken': '{{ csrf_token }}'
             },
             data: JSON.stringify({
-                subcategory_id: subcatId
+                subcategory_id: subcatId,
+                season_id: $('#seasonSelect').val() || ''
             }),
             success(res) {
                 if (res.success) {
@@ -869,13 +926,23 @@ $(document).ready(function () {
                     // Add corresponding budget and qty inputs
                     const amountContainer = row.find('.approved-amount-container');
                     const qtyContainer = row.find('.approved-qty-container');
-                    const spacer = '<div style="height: 22px;"></div>';
-                    amountContainer.find('div[style*="height"]').before(
+                    const spentContainer = row.find('.spent-amount-container');
+                    const balanceContainer = row.find('.balance-amount-container');
+
+                    amountContainer.find('.inline-subcat-total-approved').before(
                         `<input type="number" step="0.01" class="form-control form-control-sm text-end inline-range-approved-amount fw-bold" data-range-id="${res.range_id}" value="0.00" style="width: 100px; border-color: #cbd5e1; color: #1e293b; font-size: 0.78rem; padding: 0.2rem 0.4rem; border-radius: 4px !important;" placeholder="0.00">`
                     );
-                    qtyContainer.find('div[style*="height"]').before(
+                    qtyContainer.find('.inline-subcat-total-qty').before(
                         `<input type="number" step="1" class="form-control form-control-sm text-end inline-range-approved-qty fw-bold" data-range-id="${res.range_id}" value="0" style="width: 80px; border-color: #cbd5e1; color: #1e293b; font-size: 0.78rem; padding: 0.2rem 0.4rem; border-radius: 4px !important;" placeholder="0">`
                     );
+                    spentContainer.find('.inline-subcat-total-spent').before(
+                        `<div class="d-flex align-items-center justify-content-end fw-semibold text-warning inline-range-spent-text" data-range-id="${res.range_id}" data-spent="0" style="height: 28px; font-size: 0.8rem; padding-right: 4px;">₹0.00</div>`
+                    );
+                    balanceContainer.find('.inline-subcat-total-balance').before(
+                        `<div class="d-flex align-items-center justify-content-end fw-bold text-success inline-range-balance-text" data-range-id="${res.range_id}" data-balance="0.00" style="height: 28px; font-size: 0.8rem; padding-right: 4px;">₹0.00</div>`
+                    );
+
+                    recalculateSubcatRowTotals(row);
                 }
             }
         });
@@ -899,6 +966,8 @@ $(document).ready(function () {
                 }),
                 success(res) {
                     if (res.success) {
+                        const targetRow = $(`tr`).has(`div[data-range-id="${rangeId}"], input[data-range-id="${rangeId}"]`);
+
                         // Remove from modal lists
                         $(`#modalSalesRangesList div[data-range-id="${rangeId}"]`).remove();
                         $(`#modalBuyingRangesList div[data-range-id="${rangeId}"]`).remove();
@@ -906,6 +975,10 @@ $(document).ready(function () {
                         // Remove from inline table lists (price range rows + budget/qty inputs)
                         $(`tr div[data-range-id="${rangeId}"]`).remove();
                         $(`tr input[data-range-id="${rangeId}"]`).remove();
+
+                        if (targetRow.length) {
+                            recalculateSubcatRowTotals(targetRow);
+                        }
                     }
                 }
             });
@@ -931,7 +1004,29 @@ $(document).ready(function () {
             data: JSON.stringify(payload),
             success(res) {
                 input.css('border-color', res.success ? '#10b981' : '#ef4444');
-                if (res.success) setTimeout(() => input.css('border-color', '#cbd5e1'), 800);
+                if (res.success) {
+                    setTimeout(() => input.css('border-color', '#cbd5e1'), 800);
+                    
+                    const row = input.closest('tr');
+                    if (isAmount) {
+                        // Update balance of the range
+                        const spentDiv = row.find(`.inline-range-spent-text[data-range-id="${rangeId}"]`);
+                        const balanceDiv = row.find(`.inline-range-balance-text[data-range-id="${rangeId}"]`);
+                        const spentVal = parseFloat(spentDiv.data('spent') || 0);
+                        const balanceVal = val - spentVal;
+                        
+                        balanceDiv.data('balance', balanceVal);
+                        balanceDiv.text('₹' + balanceVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                        if (balanceVal >= 0) {
+                            balanceDiv.removeClass('text-danger').addClass('text-success');
+                        } else {
+                            balanceDiv.removeClass('text-success').addClass('text-danger');
+                        }
+                    }
+                    
+                    // Recalculate row totals
+                    recalculateSubcatRowTotals(row);
+                }
             },
             error() { input.css('border-color', '#ef4444'); }
         });
@@ -1001,6 +1096,39 @@ $(document).ready(function () {
             }
         });
     });
+
+    function recalculateSubcatRowTotals(row) {
+        // 1. Total Approved Budget
+        let totalApproved = 0;
+        row.find('.inline-range-approved-amount').each(function() {
+            totalApproved += parseFloat($(this).val() || 0);
+        });
+        row.find('.inline-subcat-total-approved').text(totalApproved.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
+        // 2. Total Quantity Set
+        let totalQty = 0;
+        row.find('.inline-range-approved-qty').each(function() {
+            totalQty += parseInt($(this).val() || 0);
+        });
+        row.find('.inline-subcat-total-qty').text(totalQty);
+
+        // 3. Total Spent Amount
+        let totalSpent = 0;
+        row.find('.inline-range-spent-text').each(function() {
+            totalSpent += parseFloat($(this).data('spent') || 0);
+        });
+        row.find('.inline-subcat-total-spent').text('₹' + totalSpent.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
+        // 4. Total Balance
+        let totalBalance = totalApproved - totalSpent;
+        const balanceDiv = row.find('.inline-subcat-total-balance');
+        balanceDiv.text('₹' + totalBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+        if (totalBalance >= 0) {
+            balanceDiv.removeClass('text-danger').addClass('text-success');
+        } else {
+            balanceDiv.removeClass('text-success').addClass('text-danger');
+        }
+    }
 });
 </script>
 {% endblock %}

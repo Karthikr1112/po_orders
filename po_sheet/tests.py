@@ -304,6 +304,229 @@ class POTotalsAndBudgetTests(TransactionTestCase):
         self.assertFalse(res_data['success'])
         self.assertIn("does not have an approved budget or quantity", res_data['error'])
 
+    def test_season_specific_budget_constraints(self):
+        """Test that budget checks are scoped to specific seasons"""
+        from po_sheet.models import Season
+        import json
+        self.client.login(username='buyer1', password='password123')
+
+        season_onam = Season.objects.create(name="Onam")
+        season_diwali = Season.objects.create(name="Diwali")
+
+        subcat_season = SubCategory.objects.create(name="Seasonal Subcat")
+
+        # Range for Onam: Approved amount 1000, qty 10
+        pr_onam = SubCategoryPriceRange.objects.create(
+            subcategory=subcat_season,
+            season=season_onam,
+            sales_from_range=Decimal('10.00'),
+            sales_to_range=Decimal('100.00'),
+            buying_from_range=Decimal('10.00'),
+            buying_to_range=Decimal('100.00'),
+            approved_amount=Decimal('1000.00'),
+            approved_quantity=10
+        )
+
+        # Range for Diwali: Approved amount 500, qty 5
+        pr_diwali = SubCategoryPriceRange.objects.create(
+            subcategory=subcat_season,
+            season=season_diwali,
+            sales_from_range=Decimal('10.00'),
+            sales_to_range=Decimal('100.00'),
+            buying_from_range=Decimal('10.00'),
+            buying_to_range=Decimal('100.00'),
+            approved_amount=Decimal('500.00'),
+            approved_quantity=5
+        )
+
+        # 1. Create a draft PO under Onam
+        po = PurchaseOrder.objects.create(
+            po_number='PO-TEST-SEASON-1',
+            buyer=self.buyer,
+            vendor=self.vendor,
+            created_by=self.user,
+            is_draft=True
+        )
+
+        # Save with qty 8, price 50 (Total 400). Fits under Onam (Limit 1000 amt, 10 qty)
+        payload = {
+            "buyer": self.buyer.id,
+            "agent": "Test Agent",
+            "notes": "Test Notes",
+            "delivery_schedules": [],
+            "po_type": "Fresh",
+            "season": "Onam",
+            "po_date": "2026-06-26",
+            "items": [
+                {
+                    "subcategory_id": subcat_season.id,
+                    "item_type": "Fresh",
+                    "order_qty": 8,
+                    "unit_price": 50.0,
+                    "discount_percentage": 0.0,
+                    "size_allocations": {}
+                }
+            ]
+        }
+        response = self.client.post('/save-po/', data=json.dumps(payload), content_type='application/json')
+        self.assertTrue(response.json()['success'])
+
+        # 2. Try to save another PO under Diwali with qty 4 (Total 200). Fits under Diwali (Limit 500 amt, 5 qty).
+        # Note: Even though total across Onam and Diwali is 8+4=12 (which is > 10 Onam and > 5 Diwali limit), they are separate seasons!
+        po2 = PurchaseOrder.objects.create(
+            po_number='PO-TEST-SEASON-2',
+            buyer=self.buyer,
+            vendor=self.vendor,
+            created_by=self.user,
+            is_draft=True
+        )
+        payload_diwali = {
+            "buyer": self.buyer.id,
+            "agent": "Test Agent",
+            "notes": "Test Notes",
+            "delivery_schedules": [],
+            "po_type": "Fresh",
+            "season": "Diwali",
+            "po_date": "2026-06-26",
+            "items": [
+                {
+                    "subcategory_id": subcat_season.id,
+                    "item_type": "Fresh",
+                    "order_qty": 4,
+                    "unit_price": 50.0,
+                    "discount_percentage": 0.0,
+                    "size_allocations": {}
+                }
+            ]
+        }
+        response2 = self.client.post('/save-po/', data=json.dumps(payload_diwali), content_type='application/json')
+        self.assertTrue(response2.json()['success'])
+
+        # 3. Try to exceed Diwali limit with a third PO under Diwali: total Diwali qty would be 4 + 2 = 6 (> 5 limit)
+        po3 = PurchaseOrder.objects.create(
+            po_number='PO-TEST-SEASON-3',
+            buyer=self.buyer,
+            vendor=self.vendor,
+            created_by=self.user,
+            is_draft=True
+        )
+        payload_diwali_exceed = {
+            "buyer": self.buyer.id,
+            "agent": "Test Agent",
+            "notes": "Test Notes",
+            "delivery_schedules": [],
+            "po_type": "Fresh",
+            "season": "Diwali",
+            "po_date": "2026-06-26",
+            "items": [
+                {
+                    "subcategory_id": subcat_season.id,
+                    "item_type": "Fresh",
+                    "order_qty": 2,
+                    "unit_price": 50.0,
+                    "discount_percentage": 0.0,
+                    "size_allocations": {}
+                }
+            ]
+        }
+        response3 = self.client.post('/save-po/', data=json.dumps(payload_diwali_exceed), content_type='application/json')
+        self.assertFalse(response3.json()['success'])
+        self.assertIn("Quantity limit reached", response3.json()['error'])
+
+    def test_get_or_sync_subcategory_price_ranges_cloning(self):
+        """Test that get_or_sync_subcategory_price_ranges clones existing ranges from other seasons"""
+        from po_sheet.models import Season
+        from po_sheet.views import get_or_sync_subcategory_price_ranges
+
+        subcat = SubCategory.objects.create(name="Cloning Test Subcat")
+        season_onam = Season.objects.create(name="Onam")
+        season_diwali = Season.objects.create(name="Diwali")
+
+        # 1. Create a price range for Onam (diwali has none yet)
+        SubCategoryPriceRange.objects.create(
+            subcategory=subcat,
+            season=season_onam,
+            sales_from_range=Decimal('10.00'),
+            sales_to_range=Decimal('500.00'),
+            buying_from_range=Decimal('10.00'),
+            buying_to_range=Decimal('500.00'),
+            approved_amount=Decimal('1000.00'),
+            approved_quantity=100
+        )
+
+        SubCategoryPriceRange.objects.create(
+            subcategory=subcat,
+            season=season_onam,
+            sales_from_range=Decimal('501.00'),
+            sales_to_range=Decimal('1000.00'),
+            buying_from_range=Decimal('501.00'),
+            buying_to_range=Decimal('1000.00'),
+            approved_amount=Decimal('2000.00'),
+            approved_quantity=200
+        )
+
+        # 2. Call get_or_sync_subcategory_price_ranges for Diwali (which has 0 ranges initially)
+        ranges = get_or_sync_subcategory_price_ranges(subcat, season=season_diwali)
+
+        # 3. Assert that Diwali now has 2 cloned ranges matching Onam's sales/buying range intervals
+        # but with approved_amount = 0 and approved_quantity = 0
+        self.assertEqual(len(ranges), 2)
+        self.assertEqual(ranges[0].sales_from_range, Decimal('10.00'))
+        self.assertEqual(ranges[0].sales_to_range, Decimal('500.00'))
+        self.assertEqual(ranges[0].approved_amount, Decimal('0.00'))
+        self.assertEqual(ranges[0].approved_quantity, 0)
+        self.assertEqual(ranges[0].season, season_diwali)
+
+        self.assertEqual(ranges[1].sales_from_range, Decimal('501.00'))
+        self.assertEqual(ranges[1].sales_to_range, Decimal('1000.00'))
+        self.assertEqual(ranges[1].approved_amount, Decimal('0.00'))
+        self.assertEqual(ranges[1].approved_quantity, 0)
+        self.assertEqual(ranges[1].season, season_diwali)
+
+    def test_get_or_sync_subcategory_price_ranges_placeholder_replacement(self):
+        """Test that get_or_sync_subcategory_price_ranges replaces a 0-0 placeholder if other seasons have actual price ranges"""
+        from po_sheet.models import Season
+        from po_sheet.views import get_or_sync_subcategory_price_ranges
+
+        subcat = SubCategory.objects.create(name="Placeholder Replacement Test")
+        season_onam = Season.objects.create(name="Onam")
+        season_diwali = Season.objects.create(name="Diwali")
+
+        # 1. Create a price range for Onam
+        SubCategoryPriceRange.objects.create(
+            subcategory=subcat,
+            season=season_onam,
+            sales_from_range=Decimal('10.00'),
+            sales_to_range=Decimal('500.00'),
+            buying_from_range=Decimal('10.00'),
+            buying_to_range=Decimal('500.00'),
+            approved_amount=Decimal('1000.00'),
+            approved_quantity=100
+        )
+
+        # 2. Create a placeholder 0-0 range for Diwali
+        placeholder = SubCategoryPriceRange.objects.create(
+            subcategory=subcat,
+            season=season_diwali,
+            sales_from_range=Decimal('0.00'),
+            sales_to_range=Decimal('0.00'),
+            buying_from_range=Decimal('0.00'),
+            buying_to_range=Decimal('0.00'),
+            approved_amount=Decimal('0.00'),
+            approved_quantity=0
+        )
+
+        # 3. Call get_or_sync_subcategory_price_ranges for Diwali. It should detect the placeholder, delete it, and clone from Onam.
+        ranges = get_or_sync_subcategory_price_ranges(subcat, season=season_diwali)
+
+        self.assertEqual(len(ranges), 1)
+        self.assertEqual(ranges[0].sales_from_range, Decimal('10.00'))
+        self.assertEqual(ranges[0].sales_to_range, Decimal('500.00'))
+        self.assertEqual(ranges[0].season, season_diwali)
+
+        # Verify that the original placeholder was indeed deleted from the database
+        self.assertFalse(SubCategoryPriceRange.objects.filter(id=placeholder.id).exists())
+
 
 class SubCategorySizeTests(TestCase):
     def setUp(self):

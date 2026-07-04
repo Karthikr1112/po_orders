@@ -1,1936 +1,2170 @@
-{% extends 'po_sheet/base.html' %}
-{% block title %}Purchase Order Worksheet - PO System{% endblock %}
+    {% extends 'po_sheet/base.html' %}
+    {% block title %}Purchase Order Worksheet - PO System{% endblock %}
 
-{% block extra_css %}
-<style>
-    /* Premium Luxury Styling variables */
-    :root {
-        --primary-gradient: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
-        --success-gradient: linear-gradient(135deg, #10b981 0%, #047857 100%);
-        --danger-gradient: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
-        --luxury-dark: #0f172a;
-        --luxury-glass: rgba(255, 255, 255, 0.9);
-        --luxury-border: rgba(148, 163, 184, 0.2);
-    }
+    {% block extra_css %}
+    <style>
+        /* Premium Luxury Styling variables */
+        :root {
+            --primary-gradient: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+            --success-gradient: linear-gradient(135deg, #10b981 0%, #047857 100%);
+            --danger-gradient: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+            --luxury-dark: #0f172a;
+            --luxury-glass: rgba(255, 255, 255, 0.9);
+            --luxury-border: rgba(148, 163, 184, 0.2);
+        }
 
-    body {
-        background: #f8fafc;
-        color: #1e293b;
-        font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    }
+        body {
+            background: #f8fafc;
+            color: #1e293b;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
 
-    .luxury-card {
-        background: var(--luxury-glass);
-        border: 1px solid var(--luxury-border);
-        border-radius: 12px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-        margin-bottom: 24px;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
+        .luxury-card {
+            background: var(--luxury-glass);
+            border: 1px solid var(--luxury-border);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            margin-bottom: 24px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
 
-    .luxury-card-header {
-        padding: 16px 20px;
-        border-bottom: 1px solid var(--luxury-border);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        font-weight: 700;
-        color: var(--luxury-dark);
-        background: #f1f5f9;
-        border-top-left-radius: 12px;
-        border-top-right-radius: 12px;
-    }
+        .luxury-card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--luxury-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: 700;
+            color: var(--luxury-dark);
+            background: #f1f5f9;
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+        }
 
-    .luxury-card-body {
-        padding: 20px;
-    }
+        .luxury-card-body {
+            padding: 20px;
+        }
 
-    /* Grid Table styling */
-    .sheet-table {
-        width: 100%;
-        border-collapse: separate;
-        border-spacing: 0;
-    }
+        /* Grid Table styling */
+        .sheet-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
 
-    .sheet-table th {
-        background-color: #f1f5f9;
-        color: #475569;
-        font-weight: 700;
-        text-transform: uppercase;
-        font-size: 0.75rem;
-        letter-spacing: 0.05em;
-        padding: 12px 10px;
-        border-bottom: 2px solid #cbd5e1;
-        text-align: center;
-    }
+        .sheet-table th {
+            background-color: #f1f5f9;
+            color: #475569;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            padding: 12px 10px;
+            border-bottom: 2px solid #cbd5e1;
+            text-align: center;
+        }
 
-    .sheet-table td {
-        padding: 8px 6px;
-        border-bottom: 1px solid #e2e8f0;
-        vertical-align: middle;
-    }
+        .sheet-table td {
+            padding: 8px 6px;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: middle;
+        }
 
-    .sheet-table tbody tr:hover {
-        background-color: rgba(79, 70, 229, 0.03);
-    }
+        .sheet-table tbody tr:hover {
+            background-color: rgba(79, 70, 229, 0.03);
+        }
 
-    .sheet-table .form-control,
-    .sheet-table .form-select {
-        border: 1px solid #cbd5e1;
-        padding: 5px 8px;
-        font-size: 0.85rem;
-        border-radius: 6px;
-        background-color: #fff;
-    }
+        .sheet-table .form-control,
+        .sheet-table .form-select {
+            border: 1px solid #cbd5e1;
+            padding: 5px 8px;
+            font-size: 0.85rem;
+            border-radius: 6px;
+            background-color: #fff;
+        }
 
-    .sheet-table .form-control:focus,
-    .sheet-table .form-select:focus {
-        border-color: #4f46e5;
-        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
-        outline: none;
-    }
+        .sheet-table .form-control:focus,
+        .sheet-table .form-select:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+            outline: none;
+        }
 
-    .sheet-table .qty-input,
-    .sheet-table .pcs-input,
-    .sheet-table .disc-input {
-        text-align: center;
-        width: 70px;
-        margin: 0 auto;
-    }
+        .sheet-table .qty-input,
+        .sheet-table .pcs-input,
+        .sheet-table .disc-input {
+            text-align: center;
+            width: 70px;
+            margin: 0 auto;
+        }
 
-    .sheet-table .price-input {
-        text-align: right;
-        width: 90px;
-    }
+        .sheet-table .price-input {
+            text-align: right;
+            width: 90px;
+        }
 
-    .sheet-table .tot-qty-input {
-        text-align: center;
-        width: 75px;
-        font-weight: 700;
-        border: none !important;
-        background-color: transparent !important;
-        color: var(--luxury-dark);
-    }
+        .sheet-table .tot-qty-input {
+            text-align: center;
+            width: 75px;
+            font-weight: 700;
+            border: none !important;
+            background-color: transparent !important;
+            color: var(--luxury-dark);
+        }
 
-    .sheet-table .tot-amt-display {
-        font-weight: 700;
-        color: var(--luxury-dark);
-        display: block;
-        text-align: right;
-        font-size: 0.9rem;
-    }
+        .sheet-table .tot-amt-display {
+            font-weight: 700;
+            color: var(--luxury-dark);
+            display: block;
+            text-align: right;
+            font-size: 0.9rem;
+        }
 
-    .summary-widget {
-        border-radius: 8px;
-        padding: 12px 16px;
-        background: white;
-        border: 1px solid var(--luxury-border);
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        text-align: center;
-    }
+        .summary-widget {
+            border-radius: 8px;
+            padding: 12px 16px;
+            background: white;
+            border: 1px solid var(--luxury-border);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            text-align: center;
+        }
 
-    .summary-widget-label {
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        font-weight: 700;
-        color: #64748b;
-        letter-spacing: 0.05em;
-        margin-bottom: 2px;
-        display: block;
-    }
+        .summary-widget-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            color: #64748b;
+            letter-spacing: 0.05em;
+            margin-bottom: 2px;
+            display: block;
+        }
 
-    .summary-widget-value {
-        font-size: 1.25rem;
-        font-weight: 800;
-        color: var(--luxury-dark);
-    }
+        .summary-widget-value {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--luxury-dark);
+        }
 
-    .action-bar-container {
-        position: sticky;
-        bottom: 0;
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(8px);
-        border-top: 1px solid var(--luxury-border);
-        padding: 14px 20px;
-        z-index: 990;
-        box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
-        display: flex;
-        justify-content: center;
-        gap: 12px;
-        flex-wrap: wrap;
-    }
+        .action-bar-container {
+            position: sticky;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            border-top: 1px solid var(--luxury-border);
+            padding: 14px 20px;
+            z-index: 990;
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
 
-    .action-btn {
-        padding: 8px 16px;
-        font-weight: 700;
-        border-radius: 6px;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 0.85rem;
-        transition: all 0.2s ease;
-        border: none;
-        color: white;
-    }
+        .action-btn {
+            padding: 8px 16px;
+            font-weight: 700;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+            border: none;
+            color: white;
+        }
 
-    .action-btn:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        color: white;
-    }
+        .action-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            color: white;
+        }
 
-    .action-btn-save { background: var(--success-gradient); }
-    .action-btn-edit { background: var(--primary-gradient); }
-    .action-btn-preview { background: #0284c7; }
-    .action-btn-send { background: #d97706; }
-    .action-btn-register { background: #475569; }
-    .action-btn-new { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
-    .action-btn-new:hover { color: #0f172a; }
+        .action-btn-save { background: var(--success-gradient); }
+        .action-btn-edit { background: var(--primary-gradient); }
+        .action-btn-preview { background: #0284c7; }
+        .action-btn-send { background: #d97706; }
+        .action-btn-register { background: #475569; }
+        .action-btn-new { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
+        .action-btn-new:hover { color: #0f172a; }
 
-    .schedule-row {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 6px;
-        padding: 8px;
-        margin-bottom: 8px;
-    }
+        .schedule-row {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 8px;
+            margin-bottom: 8px;
+        }
 
-    .counter-text {
-        font-size: 0.7rem;
-        font-weight: 600;
-        color: #64748b;
-        text-align: right;
-        margin-top: 2px;
-        display: block;
-    }
-    /* Custom Premium Select Dropdown Styling */
-    .custom-select-container {
-        position: relative;
-        width: 100%;
-    }
-    .custom-select-input {
-        cursor: pointer;
-        background-color: #fff !important;
-        padding-right: 30px !important;
-    }
-    .custom-select-arrow {
-        position: absolute;
-        right: 12px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #94a3b8;
-        pointer-events: none;
-        font-size: 0.8rem;
-    }
-    .custom-select-dropdown {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        background: #fff;
-        border: 1px solid rgba(148, 163, 184, 0.25);
-        border-radius: 8px;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-        max-height: 250px;
-        overflow-y: auto;
-        z-index: 1050;
-        margin-top: 4px;
-        padding: 4px;
-    }
-    .custom-select-option {
-        padding: 8px 12px;
-        cursor: pointer;
-        font-size: 0.85rem;
-        color: #1e293b;
-        border-radius: 6px;
-        transition: background-color 0.15s, color 0.15s;
-    }
-    .custom-select-option:hover {
-        background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%) !important;
-        color: #fff !important;
-    }
-    .custom-select-option.selected {
-        background-color: #f1f5f9;
-        font-weight: 600;
-    }
-    /* Cell-level custom select styles */
-    .sheet-table .custom-select-input {
-        height: 33px !important;
-        padding: 2px 8px !important;
-        padding-right: 25px !important;
-        font-size: 0.85rem !important;
-    }
-    .sheet-table .custom-select-arrow {
-        right: 8px;
-        font-size: 0.7rem;
-    }
-    
-    /* Prevent responsive table container from clipping absolute dropdowns on desktop */
-    .table-responsive {
-        overflow: visible !important;
-    }
-
-    @media (max-width: 991.98px) {
-        .table-responsive {
-            overflow-x: auto !important;
-            overflow-y: auto !important;
-            -webkit-overflow-scrolling: touch;
-            padding-bottom: 120px; /* Extra spacing at bottom for custom dropdown options to prevent clipping */
+        .counter-text {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #64748b;
+            text-align: right;
+            margin-top: 2px;
+            display: block;
+        }
+        /* Custom Premium Select Dropdown Styling */
+        .custom-select-container {
+            position: relative;
+            width: 100%;
+        }
+        .custom-select-input {
+            cursor: pointer;
+            background-color: #fff !important;
+            padding-right: 30px !important;
+        }
+        .custom-select-arrow {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            pointer-events: none;
+            font-size: 0.8rem;
+            z-index: 10;
         }
         .custom-select-dropdown {
-            max-height: 150px !important;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            border-radius: 8px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            max-height: 250px;
+            overflow-y: auto;
+            z-index: 1050;
+            margin-top: 4px;
+            padding: 4px;
         }
-        #vendorDetailsBox .d-flex {
-            flex-direction: column;
-            align-items: flex-start !important;
-            gap: 10px !important;
+        .custom-select-option {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: #1e293b;
+            border-radius: 6px;
+            transition: background-color 0.15s, color 0.15s;
         }
-        .row.text-center .col-md-4 {
-            border-right: none !important;
-            border-bottom: 1px solid #e2e8f0;
-            padding-bottom: 10px;
-            margin-bottom: 10px;
+        .custom-select-option:hover {
+            background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%) !important;
+            color: #fff !important;
         }
-        .row.text-center .col-md-4:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
-            margin-bottom: 0;
+        .custom-select-option.selected {
+            background-color: #f1f5f9;
+            font-weight: 600;
         }
-    }
+        /* Cell-level custom select styles */
+        .sheet-table .custom-select-input {
+            height: 33px !important;
+            padding: 2px 8px !important;
+            padding-right: 25px !important;
+            font-size: 0.85rem !important;
+        }
+        .sheet-table .custom-select-arrow {
+            right: 8px;
+            font-size: 0.7rem;
+        }
+        
+        /* Prevent responsive table container from clipping absolute dropdowns on desktop */
+        .table-responsive {
+            overflow: visible !important;
+        }
 
-    @media (max-width: 768px) {
-        .action-bar-container {
-            padding: 10px;
-            gap: 8px;
-            justify-content: space-between;
+        @media (max-width: 991.98px) {
+            .table-responsive {
+                overflow-x: auto !important;
+                overflow-y: auto !important;
+                -webkit-overflow-scrolling: touch;
+                padding-bottom: 120px; /* Extra spacing at bottom for custom dropdown options to prevent clipping */
+            }
+            .custom-select-dropdown {
+                max-height: 150px !important;
+            }
+            #vendorDetailsBox .d-flex {
+                flex-direction: column;
+                align-items: flex-start !important;
+                gap: 10px !important;
+            }
+            .row.text-center .col-md-4 {
+                border-right: none !important;
+                border-bottom: 1px solid #e2e8f0;
+                padding-bottom: 10px;
+                margin-bottom: 10px;
+            }
+            .row.text-center .col-md-4:last-child {
+                border-bottom: none;
+                padding-bottom: 0;
+                margin-bottom: 0;
+            }
         }
-        .action-btn {
-            width: calc(50% - 4px);
-            justify-content: center;
-            font-size: 0.75rem;
-            padding: 8px 4px;
+
+        @media (max-width: 768px) {
+            .action-bar-container {
+                padding: 10px;
+                gap: 8px;
+                justify-content: space-between;
+            }
+            .action-btn {
+                width: calc(50% - 4px);
+                justify-content: center;
+                font-size: 0.75rem;
+                padding: 8px 4px;
+            }
         }
-    }
-</style>
-{% endblock %}
+    </style>
+    {% endblock %}
 
-{% block content %}
-<div class="container-fluid p-2 p-md-4">
-    
-    <!-- HEADER CARD -->
-    <div class="luxury-card mb-4">
-        <div class="luxury-card-header">
-            <span><i class="bi bi-info-circle me-2 text-primary"></i>PO HEADER DETAILS</span>
-        </div>
-        <div class="luxury-card-body">
-            <div class="row g-3">
-                <!-- Row 1: PO Number, PO Date, PO Type, Season / Name -->
-                <div class="col-md-4">
-                    <label class="form-label fw-bold text-muted small text-uppercase" style="font-size: 0.75rem;">PO Number</label>
-                    <input type="text" id="poNumber" class="form-control" value="{{ po.po_number }}" readonly>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-bold text-muted small text-uppercase" style="font-size: 0.75rem;">PO Date</label>
-                    <input type="date" id="poDate" class="form-control" value="{{ po.po_date|date:'Y-m-d' }}">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-bold text-muted small text-uppercase" style="font-size: 0.75rem;">Season / Name</label>
-                    <div class="custom-select-container">
-                        <input type="text" id="poSeason" class="form-control custom-select-input" placeholder="-- Select Season --" value="{{ po.season|default:'' }}" data-selected-value="{{ po.season|default:'' }}">
-                        <span class="custom-select-arrow"><i class="bi bi-chevron-down"></i></span>
-                        <div class="custom-select-dropdown d-none">
-                            {% for season in seasons %}
-                            <div class="custom-select-option" data-value="{{ season.name }}">{{ season.name }}</div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Row 2: Buyer Name, Agent, Vendor -->
-                <div class="col-md-4">
-                    <label class="form-label fw-bold text-muted small text-uppercase" style="font-size: 0.75rem;">Buyer Name</label>
-                    <div class="custom-select-container">
-                        <input type="text" id="poBuyer" class="form-control custom-select-input" placeholder="-- Select Buyer --" value="{{ po.buyer.name|default:'' }}" data-selected-value="{{ po.buyer_id|default:'' }}">
-                        <span class="custom-select-arrow"><i class="bi bi-chevron-down"></i></span>
-                        <div class="custom-select-dropdown d-none">
-                            {% for buyer in buyers %}
-                            <div class="custom-select-option" data-value="{{ buyer.id }}">{{ buyer.name }}</div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-bold text-muted small text-uppercase" style="font-size: 0.75rem;">Agent</label>
-                    <input type="text" id="poAgent" class="form-control" value="{{ po.agent|default:'' }}" placeholder="Agent name">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-bold text-muted small text-uppercase" style="font-size: 0.75rem;">Vendor</label>
-                    <div class="custom-select-container">
-                        <input type="text" id="poVendorSelect" class="form-control custom-select-input" placeholder="-- Select Vendor --" value="{{ po.vendor.vendor_name|default:'' }}" data-selected-value="{{ po.vendor_id|default:'' }}">
-                        <span class="custom-select-arrow"><i class="bi bi-chevron-down"></i></span>
-                        <div class="custom-select-dropdown d-none">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Vendor Details Section -->
-                <div class="col-12 mt-3">
-                    <div id="vendorDetailsBox" class="p-3 rounded-3" style="background-color: #f0f7ff; border: 1px solid #d0e7ff; color: #1e3a8a; font-size: 0.85rem;">
-                        {% if po.vendor %}
-                            <div class="d-flex flex-wrap gap-4 align-items-center">
-                                <div>
-                                    <strong class="d-block" style="font-size: 0.95rem; color: #0f172a;">{{ po.vendor.vendor_name }}</strong>
-                                    <span class="text-muted small">Code: {{ po.vendor.vendor_code }}</span>
-                                </div>
-                                <div style="height: 24px; width: 1px; background-color: #cbd5e1;" class="d-none d-xl-block"></div>
-                                <div>
-                                    <span class="d-block"><i class="bi bi-geo-alt me-1 text-primary"></i>{{ po.vendor.address|default:'N/A' }}</span>
-                                    <span class="text-muted small">{{ po.vendor.city|default:'' }}{% if po.vendor.state %}, {{ po.vendor.state }}{% endif %}{% if po.vendor.pin_code %} - {{ po.vendor.pin_code }}{% endif %}</span>
-                                </div>
-                                <div style="height: 24px; width: 1px; background-color: #cbd5e1;" class="d-none d-xl-block"></div>
-                                <div>
-                                    <span class="d-block"><i class="bi bi-envelope me-1 text-primary"></i>{{ po.vendor.email|default:'N/A' }}</span>
-                                    <span class="d-block"><i class="bi bi-telephone me-1 text-primary"></i>{{ po.vendor.phone|default:'N/A' }}</span>
-                                </div>
-                                <div style="height: 24px; width: 1px; background-color: #cbd5e1;" class="d-none d-xl-block"></div>
-                                <div>
-                                    <span class="d-block"><strong>GSTIN:</strong> {{ po.vendor.gst_number|default:'N/A' }}</span>
-                                    <span class="text-muted small">Contact: {{ po.vendor.contact_person|default:'N/A' }}</span>
-                                </div>
-                            </div>
-                        {% else %}
-                            <div class="d-flex align-items-center gap-2">
-                                <i class="bi bi-info-circle-fill text-primary" style="font-size: 1.1rem;"></i>
-                                <span>Select a vendor to view details</span>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
+    {% block content %}
+    <div class="container-fluid p-2 p-md-4">
+        
+        <!-- HEADER CARD -->
+        <div class="luxury-card mb-4">
+            <div class="luxury-card-header">
+                <span><i class="bi bi-info-circle me-2 text-primary"></i>PO HEADER DETAILS</span>
             </div>
-        </div>
-    </div>
-
-    <!-- OTB CONTROL PANEL -->
-    <div class="luxury-card mb-4" id="otbControlSection">
-        <div class="luxury-card-header py-2" style="font-size: 0.85rem; background: #f8fafc;">
-            <span><i class="bi bi-sliders me-2 text-primary"></i>OTB CONTROL — <span id="otbActiveSubcatName" class="fw-bold text-indigo text-uppercase">NO SUBCATEGORY SELECTED</span></span>
-        </div>
-        <div class="luxury-card-body py-2">
-            <div class="row">
-                <!-- AMOUNT COLUMN -->
-                <div class="col-md-6 border-end">
-                    <div class="row text-center">
-                        <div class="col-12 mb-1">
-                            <span class="badge bg-light text-secondary border" style="font-size: 0.68rem; letter-spacing: 0.04em;">AMOUNT (₹)</span>
-                        </div>
-                        <div class="col-4 border-end">
-                            <span class="text-muted small fw-bold d-block text-uppercase" style="font-size: 0.68rem;">Approved Budget</span>
-                            <h6 class="fw-bold mb-0 mt-1" id="otbApprovedAmt">—</h6>
-                        </div>
-                        <div class="col-4 border-end">
-                            <span class="text-muted small fw-bold d-block text-uppercase" style="font-size: 0.68rem;">Spent (Submitted)</span>
-                            <h6 class="fw-bold mb-0 mt-1 text-warning" id="otbSpentAmt">—</h6>
-                        </div>
-                        <div class="col-4">
-                            <span class="text-muted small fw-bold d-block text-uppercase" style="font-size: 0.68rem;">Remaining</span>
-                            <h6 class="fw-bold mb-0 mt-1" id="otbRemainingAmt">—</h6>
-                            <small class="text-muted" id="otbThisPoAmtLabel" style="font-size:0.68rem; display:none;">This PO: <span id="otbThisPoAmt"></span></small>
+            <div class="luxury-card-body">
+                <div class="row g-3">
+                    <!-- Row 1: PO Number, PO Date, PO Type, Season / Name -->
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold text-muted small text-uppercase" style="font-size: 0.75rem;">PO Number</label>
+                        <input type="text" id="poNumber" class="form-control" value="{{ preview_po_number }}" readonly>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold text-muted small text-uppercase" style="font-size: 0.75rem;">PO Date</label>
+                        <input type="date" id="poDate" class="form-control" value="{{ po.po_date|date:'Y-m-d' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold text-muted small text-uppercase" style="font-size: 0.75rem;">Season / Name</label>
+                        <div class="custom-select-container">
+                            <input type="text" id="poSeason" class="form-control custom-select-input" placeholder="-- Select Season --" value="{{ po.season|default:'' }}" data-selected-value="{{ po.season|default:'' }}">
+                            <span class="custom-select-arrow"><i class="bi bi-chevron-down"></i></span>
+                            <div class="custom-select-dropdown d-none">
+                                {% for season in seasons %}
+                                <div class="custom-select-option" data-value="{{ season.name }}">{{ season.name }}</div>
+                                {% endfor %}
+                            </div>
                         </div>
                     </div>
-                </div>
-                <!-- QUANTITY COLUMN -->
-                <div class="col-md-6">
-                    <div class="row text-center">
-                        <div class="col-12 mb-1">
-                            <span class="badge bg-light text-secondary border" style="font-size: 0.68rem; letter-spacing: 0.04em;">QUANTITY</span>
-                        </div>
-                        <div class="col-4 border-end">
-                            <span class="text-muted small fw-bold d-block text-uppercase" style="font-size: 0.68rem;">Approved Qty</span>
-                            <h6 class="fw-bold mb-0 mt-1" id="otbApprovedQty">—</h6>
-                        </div>
-                        <div class="col-4 border-end">
-                            <span class="text-muted small fw-bold d-block text-uppercase" style="font-size: 0.68rem;">Spent Qty</span>
-                            <h6 class="fw-bold mb-0 mt-1 text-warning" id="otbSpentQty">—</h6>
-                        </div>
-                        <div class="col-4">
-                            <span class="text-muted small fw-bold d-block text-uppercase" style="font-size: 0.68rem;">Remaining Qty</span>
-                            <h6 class="fw-bold mb-0 mt-1" id="otbBalanceQty">—</h6>
+
+                    <!-- Row 2: Buyer Name, Agent, Vendor, Ratio Type -->
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold text-muted small text-uppercase" style="font-size: 0.75rem;">Buyer Name</label>
+                        <div class="custom-select-container">
+                            <input type="text" id="poBuyer" class="form-control custom-select-input" placeholder="-- Select Buyer --" value="{{ po.buyer.name|default:'' }}" data-selected-value="{{ po.buyer_id|default:'' }}">
+                            <span class="custom-select-arrow"><i class="bi bi-chevron-down"></i></span>
+                            <div class="custom-select-dropdown d-none">
+                                {% for buyer in buyers %}
+                                <div class="custom-select-option" data-value="{{ buyer.id }}">{{ buyer.name }}</div>
+                                {% endfor %}
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold text-muted small text-uppercase" style="font-size: 0.75rem;">Agent</label>
+                        <input type="text" id="poAgent" class="form-control" value="{{ po.agent|default:'' }}" placeholder="Agent name">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold text-muted small text-uppercase" style="font-size: 0.75rem;">Vendor</label>
+                        <div class="custom-select-container">
+                            <input type="text" id="poVendorSelect" class="form-control custom-select-input" placeholder="-- Select Vendor --" value="{{ po.vendor.vendor_name|default:'' }}" data-selected-value="{{ po.vendor_id|default:'' }}">
+                            <span class="custom-select-arrow"><i class="bi bi-chevron-down"></i></span>
+                            <div class="custom-select-dropdown d-none">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold text-muted small text-uppercase" style="font-size: 0.75rem;">Ratio Type</label>
+                        <div class="custom-select-container">
+                            <input type="text" id="poRatioType" class="form-control custom-select-input" placeholder="-- Select Ratio Type --" value="{{ po.ratio_type.name|default:'' }}" data-selected-value="{{ po.ratio_type_id|default:'' }}">
+                            <span class="custom-select-arrow"><i class="bi bi-chevron-down"></i></span>
+                            <div class="custom-select-dropdown d-none">
+                                {% for rt in ratio_types %}
+                                <div class="custom-select-option" data-value="{{ rt.id }}">{{ rt.name }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
 
-    <!-- ORDER LINES GRID CARD -->
-    <div class="luxury-card">
-        <div class="luxury-card-header">
-            <span><i class="bi bi-grid-3x3 me-2 text-primary"></i>Purchase Order Lines</span>
-            <span class="badge bg-light text-dark border" id="rowCounter">0 Rows</span>
-        </div>
-        <div class="luxury-card-body p-0">
-            <div class="table-responsive">
-                <table class="sheet-table" id="orderLinesTable">
-                    <thead>
-                        <tr>
-                            <th style="width: 5%">S.No</th>
-                            <th style="width: 26%">SubCategory</th>
-                            <th style="width: 10%">Type</th>
-                            <th style="width: 10%">Ord Qty</th>
-                            <th style="width: 10%">Price(₹)</th>
-                            <th style="width: 7%">Disc%</th>
-                            <th style="width: 10%">Tot Qty</th>
-                            <th style="width: 11%">Sizes</th>
-                            <th style="width: 8%">Tot Amt(₹)</th>
-                            <th style="width: 3%"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="orderLinesBody">
-                        {% for item in po_items %}
-                        <tr class="item-row" data-sizes-json='{% if item.size_allocations %}{{ item.size_allocations|safe }}{% else %}{}{% endif %}'>
-                            <td class="row-sno align-middle text-center fw-bold text-muted">1</td>
-                            <td class="align-middle">
-                                <div class="custom-select-container">
-                                    <input type="text" class="form-control custom-select-input subcat-select" placeholder="-- SubCategory --" value="{{ item.subcategory.name|default:'' }}" data-selected-value="{{ item.subcategory_id|default:'' }}">
-                                    <span class="custom-select-arrow"><i class="bi bi-chevron-down"></i></span>
-                                    <div class="custom-select-dropdown d-none">
-                                        {% if item.subcategory %}
-                                            <div class="custom-select-option"
-                                                data-value="{{ item.subcategory.id }}"
-                                                data-price="0.00"
-                                                data-otb-amt="{{ item.subcategory.available_budget|default:0|floatformat:2 }}"
-                                                data-has-budget="{% if item.subcategory.has_budget %}true{% else %}false{% endif %}"
-                                                data-approved-amt="{{ item.subcategory.approved_amount_val|default:0|floatformat:2 }}"
-                                                data-approved-qty="{{ item.subcategory.approved_quantity_val|default:0 }}"
-                                                data-spent-amt="{{ item.subcategory.spent_amount_val|default:0|floatformat:2 }}"
-                                                data-spent-qty="{{ item.subcategory.spent_qty_val|default:0 }}">{{ item.subcategory.name }}</div>
-                                        {% endif %}
+                    <!-- Vendor Details Section -->
+                    <div class="col-12 mt-3">
+                        <div id="vendorDetailsBox" class="p-3 rounded-3" style="background-color: #f0f7ff; border: 1px solid #d0e7ff; color: #1e3a8a; font-size: 0.85rem;">
+                            {% if po.vendor %}
+                                <div class="d-flex flex-wrap gap-4 align-items-center">
+                                    <div>
+                                        <strong class="d-block" style="font-size: 0.95rem; color: #0f172a;">{{ po.vendor.vendor_name }}</strong>
+                                        <span class="text-muted small">Code: {{ po.vendor.vendor_code }}</span>
+                                    </div>
+                                    <div style="height: 24px; width: 1px; background-color: #cbd5e1;" class="d-none d-xl-block"></div>
+                                    <div>
+                                        <span class="d-block"><i class="bi bi-geo-alt me-1 text-primary"></i>{{ po.vendor.address|default:'N/A' }}</span>
+                                        <span class="text-muted small">{{ po.vendor.city|default:'' }}{% if po.vendor.state %}, {{ po.vendor.state }}{% endif %}{% if po.vendor.pin_code %} - {{ po.vendor.pin_code }}{% endif %}</span>
+                                    </div>
+                                    <div style="height: 24px; width: 1px; background-color: #cbd5e1;" class="d-none d-xl-block"></div>
+                                    <div>
+                                        <span class="d-block"><i class="bi bi-envelope me-1 text-primary"></i>{{ po.vendor.email|default:'N/A' }}</span>
+                                        <span class="d-block"><i class="bi bi-telephone me-1 text-primary"></i>{{ po.vendor.phone|default:'N/A' }}</span>
+                                    </div>
+                                    <div style="height: 24px; width: 1px; background-color: #cbd5e1;" class="d-none d-xl-block"></div>
+                                    <div>
+                                        <span class="d-block"><strong>GSTIN:</strong> {{ po.vendor.gst_number|default:'N/A' }}</span>
+                                        <span class="text-muted small">Contact: {{ po.vendor.contact_person|default:'N/A' }}</span>
                                     </div>
                                 </div>
-                            </td>
-                            <td class="align-middle">
-                                <select class="form-select type-select">
-                                    <option value="Fresh" {% if item.item_type == 'Fresh' %}selected{% endif %}>Fresh</option>
-                                    <option value="Promo" {% if item.item_type == 'Promo' %}selected{% endif %}>Promo</option>
-                                    <option value="Sample" {% if item.item_type == 'Sample' %}selected{% endif %}>Sample</option>
-                                    <option value="Stock" {% if item.item_type == 'Stock' %}selected{% endif %}>Stock</option>
-                                </select>
-                            </td>
-                            <td class="align-middle">
-                                <input type="number" class="form-control qty-input" value="{{ item.order_qty }}" min="0">
-                            </td>
-                            <td class="align-middle">
-                                <input type="number" class="form-control price-input" value="{{ item.unit_price|floatformat:0 }}" step="1" min="0">
-                            </td>
-                            <td class="align-middle">
-                                <input type="number" class="form-control disc-input" value="{{ item.discount_percentage|floatformat:0 }}" min="0" max="100">
-                            </td>
-                            <td class="align-middle">
-                                <input type="number" class="form-control tot-qty-input" value="{{ item.tot_qty }}" readonly>
-                            </td>
-                            <td class="align-middle text-center">
-                                <span class="size-allocation-text fw-bold text-indigo" style="cursor: pointer; font-size: 0.8rem; text-decoration: underline;" onclick="openSizeModal(this)">
-                                    {% for sz, qty in item.size_allocations.items %}
-                                        {% if not forloop.first %}, {% endif %}{{ sz }}-{{ qty }}
-                                    {% empty %}
-                                        —
-                                    {% endfor %}
-                                </span>
-                            </td>
-                            <td class="align-middle">
-                                <span class="tot-amt-display">₹{{ item.tot_amt|floatformat:2 }}</span>
-                            </td>
-                            <td class="align-middle text-center">
-                                <button type="button" class="btn btn-link text-danger p-0 remove-row-btn" style="box-shadow: none;">
-                                    <i class="bi bi-x-circle-fill fs-5"></i>
-                                </button>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Add Row Control -->
-            <div class="p-3 border-top bg-light d-flex justify-content-between align-items-center">
-                <button type="button" class="btn btn-outline-primary btn-sm fw-bold" id="addOrderRowBtn">
-                    <i class="bi bi-plus-lg me-1"></i>Add Row
-                </button>
-
-                <div class="d-flex gap-4">
-                    <div class="text-end">
-                        <span class="text-muted small fw-bold text-uppercase d-block" style="font-size: 0.7rem; letter-spacing: 0.05em;">TOTAL QTY</span>
-                        <h4 class="fw-bold text-dark mb-0" id="gridTotalQty">0</h4>
-                    </div>
-                    <div class="text-end border-start ps-4">
-                        <span class="text-muted small fw-bold text-uppercase d-block" style="font-size: 0.7rem; letter-spacing: 0.05em;">TOTAL AMOUNT</span>
-                        <h4 class="fw-bold text-indigo mb-0" id="gridTotalAmt">₹0.00</h4>
+                            {% else %}
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-info-circle-fill text-primary" style="font-size: 1.1rem;"></i>
+                                    <span>Select a vendor to view details</span>
+                                </div>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- DOUBLE CARDS FOR SCHEDULE & REMARKS -->
-    <div class="row mt-4">
-        <!-- DELIVERY SCHEDULE -->
-        <div class="col-md-7">
-            <div class="luxury-card" style="min-height: 250px;">
-                <div class="luxury-card-header">
-                    <span><i class="bi bi-calendar-event me-2 text-indigo"></i>Delivery Schedule</span>
-                </div>
-                <div class="luxury-card-body">
-                    <div id="deliverySchedulesContainer">
-                        <!-- Filled dynamically by JS -->
+        <!-- OTB CONTROL PANEL -->
+        <div class="luxury-card mb-4" id="otbControlSection">
+            <div class="luxury-card-header py-2" style="font-size: 0.85rem; background: #f8fafc;">
+                <span><i class="bi bi-sliders me-2 text-primary"></i>OTB CONTROL — <span id="otbActiveSubcatName" class="fw-bold text-indigo text-uppercase">NO SUBCATEGORY SELECTED</span></span>
+            </div>
+            <div class="luxury-card-body py-2">
+                <div class="row">
+                    <!-- AMOUNT COLUMN -->
+                    <div class="col-md-6 border-end">
+                        <div class="row text-center">
+                            <div class="col-12 mb-1">
+                                <span class="badge bg-light text-secondary border" style="font-size: 0.68rem; letter-spacing: 0.04em;">AMOUNT (₹)</span>
+                            </div>
+                            <div class="col-4 border-end">
+                                <span class="text-muted small fw-bold d-block text-uppercase" style="font-size: 0.68rem;">Approved Budget</span>
+                                <h6 class="fw-bold mb-0 mt-1" id="otbApprovedAmt">—</h6>
+                            </div>
+                            <div class="col-4 border-end">
+                                <span class="text-muted small fw-bold d-block text-uppercase" style="font-size: 0.68rem;">Spent (Submitted)</span>
+                                <h6 class="fw-bold mb-0 mt-1 text-warning" id="otbSpentAmt">—</h6>
+                            </div>
+                            <div class="col-4">
+                                <span class="text-muted small fw-bold d-block text-uppercase" style="font-size: 0.68rem;">Remaining</span>
+                                <h6 class="fw-bold mb-0 mt-1" id="otbRemainingAmt">—</h6>
+                                <small class="text-muted" id="otbThisPoAmtLabel" style="font-size:0.68rem; display:none;">This PO: <span id="otbThisPoAmt"></span></small>
+                            </div>
+                        </div>
                     </div>
-                    <button type="button" class="btn btn-outline-primary btn-sm fw-bold mt-2" id="addScheduleBtn">
-                        <i class="bi bi-plus-lg me-1"></i>Add Schedule
+                    <!-- QUANTITY COLUMN -->
+                    <div class="col-md-6">
+                        <div class="row text-center">
+                            <div class="col-12 mb-1">
+                                <span class="badge bg-light text-secondary border" style="font-size: 0.68rem; letter-spacing: 0.04em;">QUANTITY</span>
+                            </div>
+                            <div class="col-4 border-end">
+                                <span class="text-muted small fw-bold d-block text-uppercase" style="font-size: 0.68rem;">Approved Qty</span>
+                                <h6 class="fw-bold mb-0 mt-1" id="otbApprovedQty">—</h6>
+                            </div>
+                            <div class="col-4 border-end">
+                                <span class="text-muted small fw-bold d-block text-uppercase" style="font-size: 0.68rem;">Spent Qty</span>
+                                <h6 class="fw-bold mb-0 mt-1 text-warning" id="otbSpentQty">—</h6>
+                            </div>
+                            <div class="col-4">
+                                <span class="text-muted small fw-bold d-block text-uppercase" style="font-size: 0.68rem;">Remaining Qty</span>
+                                <h6 class="fw-bold mb-0 mt-1" id="otbBalanceQty">—</h6>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ORDER LINES GRID CARD -->
+        <div class="luxury-card">
+            <div class="luxury-card-header">
+                <span><i class="bi bi-grid-3x3 me-2 text-primary"></i>Purchase Order Lines</span>
+                <span class="badge bg-light text-dark border" id="rowCounter">0 Rows</span>
+            </div>
+            <div class="luxury-card-body p-0">
+                <div class="table-responsive">
+                    <table class="sheet-table" id="orderLinesTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 5%">S.No</th>
+                                <th style="width: 22%">SubCategory</th>
+                                <th style="width: 10%">Ord Qty</th>
+                                <th style="width: 10%">Price(₹)</th>
+                                <th style="width: 7%">Disc%</th>
+                                <th style="width: 10%">Tot Qty</th>
+                                <th style="width: 25%">Sizes</th>
+                                <th style="width: 8%">Tot Amt(₹)</th>
+                                <th style="width: 3%"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="orderLinesBody">
+                            {% for item in po_items %}
+                            <tr class="item-row" data-sizes-json='{% if item.size_allocations %}{{ item.size_allocations|safe }}{% else %}{}{% endif %}'>
+                                <td class="row-sno align-middle text-center fw-bold text-muted">1</td>
+                                <td class="align-middle">
+                                    <div class="custom-select-container">
+                                        <input type="text" class="form-control custom-select-input subcat-select" placeholder="-- SubCategory --" value="{{ item.subcategory.name|default:'' }}" data-selected-value="{{ item.subcategory_id|default:'' }}">
+                                        <span class="custom-select-arrow"><i class="bi bi-chevron-down"></i></span>
+                                        <div class="custom-select-dropdown d-none">
+                                            {% if item.subcategory %}
+                                                <div class="custom-select-option"
+                                                    data-value="{{ item.subcategory.id }}"
+                                                    data-price="0.00"
+                                                    data-otb-amt="{{ item.subcategory.available_budget|default:0|floatformat:2 }}"
+                                                    data-has-budget="{% if item.subcategory.has_budget %}true{% else %}false{% endif %}"
+                                                    data-approved-amt="{{ item.subcategory.approved_amount_val|default:0|floatformat:2 }}"
+                                                    data-approved-qty="{{ item.subcategory.approved_quantity_val|default:0 }}"
+                                                    data-spent-amt="{{ item.subcategory.spent_amount_val|default:0|floatformat:2 }}"
+                                                    data-spent-qty="{{ item.subcategory.spent_qty_val|default:0 }}">{{ item.subcategory.name }}</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="align-middle">
+                                    <input type="number" class="form-control qty-input" value="{{ item.order_qty }}" min="0">
+                                </td>
+                                <td class="align-middle">
+                                    <input type="number" class="form-control price-input" value="{{ item.unit_price|floatformat:0 }}" step="1" min="0">
+                                </td>
+                                <td class="align-middle">
+                                    <input type="number" class="form-control disc-input" value="{{ item.discount_percentage|floatformat:0 }}" min="0" max="100">
+                                </td>
+                                <td class="align-middle">
+                                    <input type="number" class="form-control tot-qty-input" value="{{ item.tot_qty }}" readonly>
+                                </td>
+                                <td class="align-middle text-center">
+                                    <span class="size-allocation-text d-flex flex-wrap justify-content-center gap-1" style="cursor: pointer;" onclick="openSizeModal(this)">
+                                        {% for sz, qty in item.size_allocations.items %}
+                                            <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 0.75rem; font-weight: normal;">
+                                                Sz {{ sz }}: <strong style="color: #4f46e5;">{{ qty }}</strong>
+                                            </span>
+                                        {% empty %}
+                                            —
+                                        {% endfor %}
+                                    </span>
+                                </td>
+                                <td class="align-middle">
+                                    <span class="tot-amt-display">₹{{ item.tot_amt|floatformat:2 }}</span>
+                                </td>
+                                <td class="align-middle text-center">
+                                    <button type="button" class="btn btn-link text-danger p-0 remove-row-btn" style="box-shadow: none;">
+                                        <i class="bi bi-x-circle-fill fs-5"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Add Row Control -->
+                <div class="p-3 border-top bg-light d-flex justify-content-between align-items-center">
+                    <button type="button" class="btn btn-outline-primary btn-sm fw-bold" id="addOrderRowBtn">
+                        <i class="bi bi-plus-lg me-1"></i>Add Row
                     </button>
-                </div>
-            </div>
-        </div>
 
-        <!-- REMARKS -->
-        <div class="col-md-5">
-            <div class="luxury-card" style="min-height: 250px;">
-                <div class="luxury-card-header">
-                    <span><i class="bi bi-chat-left-text me-2 text-indigo"></i>Remarks</span>
-                </div>
-                <div class="luxury-card-body">
-                    <textarea class="form-control" id="poNotesText" rows="5" placeholder="Enter remarks (max 100 words)" style="resize: none;">{{ po.notes }}</textarea>
-                    <span class="counter-text" id="remarksCounter">0 / 100 words</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- STICKY ACTION BUTTON BAR -->
-    <div class="action-bar-container">
-        <button type="button" class="action-btn action-btn-save" id="btnSavePo">
-            <i class="bi bi-check-circle"></i> Save PO
-        </button>
-        <button type="button" class="action-btn action-btn-edit" id="btnEditPo">
-            <i class="bi bi-pencil-square"></i> Lock/Unlock PO
-        </button>
-        <button type="button" class="action-btn action-btn-preview" id="btnPreviewPo">
-            <i class="bi bi-file-earmark-pdf"></i> Preview A4
-        </button>
-        <button type="button" class="action-btn action-btn-send" id="btnSendPo">
-            <i class="bi bi-send"></i> Send
-        </button>
-        <button type="button" class="action-btn action-btn-register" id="btnRegisterPo">
-            <i class="bi bi-list-task"></i> PO Register
-        </button>
-        <a href="{% url 'new_po' %}" class="action-btn action-btn-new" id="btnNewPo">
-            <i class="bi bi-file-earmark-plus"></i> New PO
-        </a>
-    </div>
-
-</div>
-
-<!-- SIZE SELECTION MODAL -->
-<div class="modal fade" id="sizeSelectionModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title fw-bold"><i class="bi bi-tag-fill me-2"></i>Select Sizes</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <!-- Admin limit info bar -->
-                <div id="sizeAdminLimitBar" class="d-flex justify-content-between align-items-center rounded px-3 py-2 mb-3" style="background:#f0fdf4; border:1px solid #bbf7d0; display:none !important;">
-                    <span class="small fw-bold text-success"><i class="bi bi-shield-check me-1"></i>Admin Approved Qty: <span id="sizeApprovedQty">—</span></span>
-                    <span class="small fw-bold text-secondary">Spent: <span id="sizeSpentQty">—</span> &nbsp;|&nbsp; Remaining: <span id="sizeRemainingQty" class="text-success fw-bold">—</span></span>
-                </div>
-
-                <!-- Over-limit warning -->
-                <div id="sizeLimitWarning" class="alert alert-danger py-2 d-none" style="font-size: 0.83rem;">
-                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
-                    <strong>Limit reached!</strong> Total qty cannot exceed the approved remaining qty of <strong id="sizeLimitMax">0</strong>.
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label fw-bold small text-muted">Total Quantity</label>
-                    <input type="number" class="form-control" id="modalTotalQty" value="" min="0">
-                </div>
-
-                <div class="border-top pt-3">
-                    <label class="form-label fw-bold small text-muted mb-2">Size Quantities
-                        <span class="text-muted fw-normal ms-2" style="font-size:0.75rem;">(changing a size will auto-adjust others to keep total fixed)</span>
-                    </label>
-                    <div id="modalSizeInputsContainer" class="d-flex flex-column gap-2">
-                        <!-- Dynamic size inputs -->
+                    <div class="d-flex gap-4">
+                        <div class="text-end">
+                            <span class="text-muted small fw-bold text-uppercase d-block" style="font-size: 0.7rem; letter-spacing: 0.05em;">TOTAL QTY</span>
+                            <h4 class="fw-bold text-dark mb-0" id="gridTotalQty">0</h4>
+                        </div>
+                        <div class="text-end border-start ps-4">
+                            <span class="text-muted small fw-bold text-uppercase d-block" style="font-size: 0.7rem; letter-spacing: 0.05em;">TOTAL AMOUNT</span>
+                            <h4 class="fw-bold text-indigo mb-0" id="gridTotalAmt">₹0.00</h4>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="modal-footer bg-light">
-                <button type="button" class="btn btn-secondary btn-sm fw-bold" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary btn-sm fw-bold" id="btnConfirmSizes">Confirm Sizes</button>
+        </div>
+
+        <!-- DOUBLE CARDS FOR SCHEDULE & REMARKS -->
+        <div class="row mt-4">
+            <!-- DELIVERY SCHEDULE -->
+            <div class="col-md-7">
+                <div class="luxury-card" style="min-height: 250px;">
+                    <div class="luxury-card-header">
+                        <span><i class="bi bi-calendar-event me-2 text-indigo"></i>Delivery Schedule</span>
+                    </div>
+                    <div class="luxury-card-body">
+                        <div id="deliverySchedulesContainer">
+                            <!-- Filled dynamically by JS -->
+                        </div>
+                        <button type="button" class="btn btn-outline-primary btn-sm fw-bold mt-2" id="addScheduleBtn">
+                            <i class="bi bi-plus-lg me-1"></i>Add Schedule
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- REMARKS -->
+            <div class="col-md-5">
+                <div class="luxury-card" style="min-height: 250px;">
+                    <div class="luxury-card-header">
+                        <span><i class="bi bi-chat-left-text me-2 text-indigo"></i>Remarks</span>
+                    </div>
+                    <div class="luxury-card-body">
+                        <textarea class="form-control" id="poNotesText" rows="5" placeholder="Enter remarks (max 100 words)" style="resize: none;">{{ po.notes }}</textarea>
+                        <span class="counter-text" id="remarksCounter">0 / 100 words</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STICKY ACTION BUTTON BAR -->
+        <div class="action-bar-container">
+            <button type="button" class="action-btn action-btn-save" id="btnSavePo">
+                <i class="bi bi-check-circle"></i> Save PO
+            </button>
+            <button type="button" class="action-btn action-btn-edit" id="btnEditPo">
+                <i class="bi bi-pencil-square"></i> Lock/Unlock PO
+            </button>
+            <button type="button" class="action-btn action-btn-preview" id="btnPreviewPo">
+                <i class="bi bi-file-earmark-pdf"></i> Preview A4
+            </button>
+            <button type="button" class="action-btn action-btn-send" id="btnSendPo">
+                <i class="bi bi-send"></i> Send
+            </button>
+            <button type="button" class="action-btn action-btn-register" id="btnRegisterPo">
+                <i class="bi bi-list-task"></i> PO Register
+            </button>
+            <a href="{% url 'new_po' %}" class="action-btn action-btn-new" id="btnNewPo">
+                <i class="bi bi-file-earmark-plus"></i> New PO
+            </a>
+        </div>
+
+    </div>
+
+    <!-- SIZE SELECTION MODAL -->
+    <div class="modal fade" id="sizeSelectionModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="modal-title fw-bold m-0"><i class="bi bi-tag-fill me-2"></i>Select Sizes</h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <a href="{% url 'ratio_manager' %}" target="_blank" class="btn btn-sm btn-light fw-bold text-primary py-1 px-2" style="font-size: 0.78rem;" title="Manage and set default ratios in a new tab">
+                            <i class="bi bi-percent"></i> Set Ratio
+                        </a>
+                        <button type="button" class="btn-close btn-close-white m-0" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <!-- Admin limit info bar -->
+                    <div id="sizeAdminLimitBar" class="d-flex justify-content-between align-items-center rounded px-3 py-2 mb-3" style="background:#f0fdf4; border:1px solid #bbf7d0; display:none !important;">
+                        <span class="small fw-bold text-success"><i class="bi bi-shield-check me-1"></i>Admin Approved Qty: <span id="sizeApprovedQty">—</span></span>
+                        <span class="small fw-bold text-secondary">Spent: <span id="sizeSpentQty">—</span> &nbsp;|&nbsp; Remaining: <span id="sizeRemainingQty" class="text-success fw-bold">—</span></span>
+                    </div>
+
+                    <!-- Over-limit warning -->
+                    <div id="sizeLimitWarning" class="alert alert-danger py-2 d-none" style="font-size: 0.83rem;">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        <strong>Limit reached!</strong> Total qty cannot exceed the approved remaining qty of <strong id="sizeLimitMax">0</strong>.
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <label class="form-label fw-bold small text-muted">Total Quantity</label>
+                            <span id="modalRatioIndicator" class="badge bg-info text-white d-none" style="font-size: 0.75rem;"></span>
+                        </div>
+                        <input type="number" class="form-control" id="modalTotalQty" value="" min="0">
+                    </div>
+
+                    <div class="border-top pt-3">
+                        <label class="form-label fw-bold small text-muted mb-2">Size Quantities
+                            <span class="text-muted fw-normal ms-2" style="font-size:0.75rem;">(changing size values will update the total quantity automatically)</span>
+                        </label>
+                        <div id="modalSizeInputsContainer" class="d-flex flex-column gap-2">
+                            <!-- Dynamic size inputs -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary btn-sm fw-bold" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm fw-bold" id="btnConfirmSizes">Confirm Sizes</button>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- SEND MODAL -->
-<div class="modal fade" id="sendPoModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-warning">
-                <h5 class="modal-title fw-bold text-white"><i class="bi bi-send-fill me-2"></i>Send Purchase Order</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label fw-bold small text-muted">Vendor Email ID</label>
-                    <input type="email" class="form-control" id="sendEmailInput" value="{{ po.vendor.email|default:'' }}" placeholder="vendor@example.com">
+    <!-- SEND MODAL -->
+    <div class="modal fade" id="sendPoModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title fw-bold text-white"><i class="bi bi-send-fill me-2"></i>Send Purchase Order</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label fw-bold small text-muted">WhatsApp Number</label>
-                    <input type="text" class="form-control" id="sendWhatsappInput" value="{{ po.vendor.phone|default:'' }}" placeholder="+919876543210">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">Vendor Email ID</label>
+                        <input type="email" class="form-control" id="sendEmailInput" value="{{ po.vendor.email|default:'' }}" placeholder="vendor@example.com">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">WhatsApp Number</label>
+                        <input type="text" class="form-control" id="sendWhatsappInput" value="{{ po.vendor.phone|default:'' }}" placeholder="+919876543210">
+                    </div>
                 </div>
-            </div>
-            <div class="modal-footer d-flex justify-content-between">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-primary" id="btnConfirmSendEmail"><i class="bi bi-envelope-fill me-1"></i>Send Email</button>
-                    <button type="button" class="btn btn-success" id="btnConfirmSendWhatsapp"><i class="bi bi-whatsapp me-1"></i>WhatsApp</button>
+                <div class="modal-footer d-flex justify-content-between">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-primary" id="btnConfirmSendEmail"><i class="bi bi-envelope-fill me-1"></i>Send Email</button>
+                        <button type="button" class="btn btn-success" id="btnConfirmSendWhatsapp"><i class="bi bi-whatsapp me-1"></i>WhatsApp</button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- LOADING OVERLAY -->
-<div id="loadingOverlay" class="d-none" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(4px);">
-    <div class="text-center">
-        <div class="spinner-border text-indigo" role="status" style="width: 3rem; height: 3rem;">
-            <span class="visually-hidden">Loading...</span>
+    <!-- LOADING OVERLAY -->
+    <div id="loadingOverlay" class="d-none" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(4px);">
+        <div class="text-center">
+            <div class="spinner-border text-indigo" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="fw-bold mt-2 text-indigo">Processing, please wait...</p>
         </div>
-        <p class="fw-bold mt-2 text-indigo">Processing, please wait...</p>
     </div>
-</div>
-{% endblock %}
+    {% endblock %}
 
-{% block extra_scripts %}
-<script>
-    const URLS = {
-        searchVendor:        "{% url 'search_vendor' %}",
-        searchSubcategory:   "{% url 'search_subcategory' %}",
-        subcategoryRanges:   "{% url 'get_subcategory_ranges' '__ID__' %}",
-        subcategorySizes:    "{% url 'get_subcategory_sizes' '__ID__' %}",
-        updatePoFields:      "{% url 'update_po_fields' %}",
-        savePo:              "{% url 'save_po' %}",
-    };
+    {% block extra_scripts %}
+    <script>
+        const URLS = {
+            searchVendor:        "{% url 'search_vendor' %}",
+            searchSubcategory:   "{% url 'search_subcategory' %}",
+            subcategoryRanges:   "{% url 'get_subcategory_ranges' '__ID__' %}",
+            subcategorySizes:    "{% url 'get_subcategory_sizes' '__ID__' %}",
+            updatePoFields:      "{% url 'update_po_fields' %}",
+            savePo:              "{% url 'save_po' %}",
+            previewPo:           "{% url 'preview_po' %}",
+            allRecords:          "{% url 'all_records' %}",
+        };
 
-    let isPoLocked = false;
-    let initialSchedules = {{ schedules_json|safe }};
+        let isPoLocked = false;
+        let initialSchedules = {{ schedules_json|safe }};
 
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
+        function formatSizesHtml(alloc) {
+            if (!alloc || Object.keys(alloc).length === 0) {
+                return '—';
+            }
+            let htmlParts = [];
+            let keys = Object.keys(alloc).sort((a, b) => {
+                let na = parseFloat(a), nb = parseFloat(b);
+                if (!isNaN(na) && !isNaN(nb)) return na - nb;
+                return a.localeCompare(b);
+            });
+            
+            keys.forEach(function(sizeName) {
+                let qty = alloc[sizeName];
+                if (qty > 0) {
+                    htmlParts.push(`<span class="badge bg-light text-dark border px-2 py-1" style="font-size: 0.75rem; font-weight: normal;">Sz ${sizeName}: <strong style="color: #4f46e5;">${qty}</strong></span>`);
+                }
+            });
+            
+            return htmlParts.length > 0 ? `<div class="d-flex flex-wrap justify-content-center gap-1">${htmlParts.join('')}</div>` : '—';
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
                 }
             }
+            return cookieValue;
         }
-        return cookieValue;
-    }
-    function validateCustomSelectInput(inputEl) {
-        let val = $(inputEl).val().trim();
-        let selectedVal = $(inputEl).data('selected-value') || '';
-        let prevText = $(inputEl).data('selected-text') || '';
-        
-        if (!val) {
-            $(inputEl).val('');
-            $(inputEl).data('selected-value', '');
-            $(inputEl).data('selected-text', '');
-            if ($(inputEl).attr('id') === 'poVendorSelect') {
-                updateVendorDetailsUI(null);
-            }
-            return '';
-        }
-        
-        if (val === prevText) {
-            return selectedVal;
-        }
-
-        let container = $(inputEl).closest('.custom-select-container');
-        let matched = false;
-        
-        container.find('.custom-select-option').each(function() {
-            if ($(this).text().trim() === val) {
-                matched = true;
-                selectedVal = $(this).data('value');
-                $(inputEl).val($(this).text().trim());
-                $(inputEl).data('selected-value', selectedVal);
-                $(inputEl).data('selected-text', $(this).text().trim());
-                
-                // Copy other data attributes
-                let dataset = this.dataset;
-                for (let key in dataset) {
-                    $(inputEl).data(key, dataset[key]);
-                    let hyphenated = key.replace(/([A-Z])/g, '-$1').toLowerCase();
-                    $(inputEl).data(hyphenated, dataset[key]);
-                    $(inputEl).attr('data-' + hyphenated, dataset[key]);
+        function validateCustomSelectInput(inputEl) {
+            let val = $(inputEl).val().trim();
+            let selectedVal = $(inputEl).data('selected-value') || '';
+            let prevText = $(inputEl).data('selected-text') || '';
+            
+            if (!val) {
+                $(inputEl).val('');
+                $(inputEl).data('selected-value', '');
+                $(inputEl).data('selected-text', '');
+                if ($(inputEl).attr('id') === 'poVendorSelect') {
+                    updateVendorDetailsUI(null);
                 }
-                return false;
+                return '';
             }
-        });
+            
+            if (val === prevText) {
+                return selectedVal;
+            }
 
-        if (!matched) {
-            let prevVal = $(inputEl).data('selected-value');
-            if (prevVal) {
-                let prevOption = container.find('.custom-select-option[data-value="' + prevVal + '"]');
-                if (prevOption.length) {
-                    $(inputEl).val(prevOption.text().trim());
-                    $(inputEl).data('selected-text', prevOption.text().trim());
-                    let dataset = prevOption[0].dataset;
+            let container = $(inputEl).closest('.custom-select-container');
+            let matched = false;
+            
+            container.find('.custom-select-option').each(function() {
+                if ($(this).text().trim() === val) {
+                    matched = true;
+                    selectedVal = $(this).data('value');
+                    $(inputEl).val($(this).text().trim());
+                    $(inputEl).data('selected-value', selectedVal);
+                    $(inputEl).data('selected-text', $(this).text().trim());
+                    
+                    // Copy other data attributes
+                    let dataset = this.dataset;
                     for (let key in dataset) {
                         $(inputEl).data(key, dataset[key]);
                         let hyphenated = key.replace(/([A-Z])/g, '-$1').toLowerCase();
                         $(inputEl).data(hyphenated, dataset[key]);
                         $(inputEl).attr('data-' + hyphenated, dataset[key]);
                     }
-                    return prevVal;
-                }
-            }
-            $(inputEl).val('');
-            $(inputEl).data('selected-value', '');
-            $(inputEl).data('selected-text', '');
-            selectedVal = '';
-            if ($(inputEl).attr('id') === 'poVendorSelect') {
-                updateVendorDetailsUI(null);
-            }
-        }
-        return selectedVal;
-    }
-
-    function updateVendorDetailsUI(dataset) {
-        if (!dataset || !dataset.value) {
-            $('#vendorDetailsBox').html(`
-                <div class="d-flex align-items-center gap-2">
-                    <i class="bi bi-info-circle-fill text-primary" style="font-size: 1.1rem;"></i>
-                    <span>Select a vendor to view details</span>
-                </div>
-            `);
-            return;
-        }
-        
-        let name = dataset.name || '';
-        let code = dataset.value || '';
-        let address = dataset.address || 'N/A';
-        let city = dataset.city || '';
-        let state = dataset.state || '';
-        let pin = dataset.pin || '';
-        let email = dataset.email || 'N/A';
-        let phone = dataset.phone || 'N/A';
-        let gst = dataset.gst || 'N/A';
-        let contact = dataset.contact || 'N/A';
-
-        let locationStr = city;
-        if (state) locationStr += (locationStr ? ', ' : '') + state;
-        if (pin) locationStr += (locationStr ? ' - ' : '') + pin;
-
-        $('#vendorDetailsBox').html(`
-            <div class="d-flex flex-wrap gap-4 align-items-center">
-                <div>
-                    <strong class="d-block" style="font-size: 0.95rem; color: #0f172a;">${name}</strong>
-                    <span class="text-muted small">Code: ${code}</span>
-                </div>
-                <div style="height: 24px; width: 1px; background-color: #cbd5e1;" class="d-none d-md-block"></div>
-                <div>
-                    <span class="d-block"><i class="bi bi-geo-alt me-1 text-primary"></i>${address}</span>
-                    <span class="text-muted small">${locationStr}</span>
-                </div>
-                <div style="height: 24px; width: 1px; background-color: #cbd5e1;" class="d-none d-md-block"></div>
-                <div>
-                    <span class="d-block"><i class="bi bi-envelope me-1 text-primary"></i>${email}</span>
-                    <span class="d-block"><i class="bi bi-telephone me-1 text-primary"></i>${phone}</span>
-                </div>
-                <div style="height: 24px; width: 1px; background-color: #cbd5e1;" class="d-none d-md-block"></div>
-                <div>
-                    <span class="d-block"><strong>GSTIN:</strong> ${gst}</span>
-                    <span class="text-muted small">Contact: ${contact}</span>
-                </div>
-            </div>
-        `);
-    }
-
-    function showLoading() { $('#loadingOverlay').removeClass('d-none'); }
-    function hideLoading() { $('#loadingOverlay').addClass('d-none'); }
-
-    function showToast(message, type = 'success') {
-        $('.toast-custom').remove();
-        const toast = $(`
-            <div class="toast-custom toast-${type}" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; background: ${type==='success'?'#10b981':'#ef4444'}; color: white; padding: 12px 24px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 10px; font-weight: 600;">
-                <i class="bi bi-${type === 'success' ? 'check-circle-fill' : 'exclamation-circle-fill'}"></i>
-                <span>${message}</span>
-                <button type="button" class="btn-close btn-close-white" onclick="this.parentElement.remove()" style="opacity: 0.8; margin-left: 10px;"></button>
-            </div>
-        `);
-        $('body').append(toast);
-        setTimeout(() => {
-            toast.fadeOut(300, function() { $(this).remove(); });
-        }, 3500);
-    }
-
-    function calculateRow(row) {
-        let price = parseFloat($(row).find('.price-input').val()) || 0;
-        let qty = parseInt($(row).find('.qty-input').val()) || 0;
-        let discount = parseFloat($(row).find('.disc-input').val()) || 0;
-
-        let totQty = qty;
-        $(row).find('.tot-qty-input').val(totQty);
-
-        let discountFactor = 1 - (discount / 100);
-        let totAmt = totQty * price * discountFactor;
-        $(row).find('.tot-amt-display').text('₹' + totAmt.toFixed(2));
-        
-        return { qty: totQty, amt: totAmt };
-    }
-
-    // Find which buying price range a given price falls into
-    function findMatchingRange(ranges, price) {
-        if (!ranges || !ranges.length || price <= 0) return null;
-        for (let r of ranges) {
-            if (price >= r.buying_from && price <= r.buying_to) return r;
-        }
-        return null;
-    }
-
-    function updateOtbControl() {
-        // Prefer the focused/active row; fall back to the first row with a subcategory
-        let activeRow = $('.item-row:focus-within');
-        if (!activeRow.length || !activeRow.find('.subcat-select').data('selected-value')) {
-            activeRow = null;
-            $('.item-row').each(function() {
-                if ($(this).find('.subcat-select').data('selected-value')) {
-                    activeRow = $(this);
                     return false;
                 }
             });
-        }
 
-        if (!activeRow) {
-            $('#otbActiveSubcatName').text('NO SUBCATEGORY SELECTED');
-            $('#otbApprovedAmt, #otbSpentAmt, #otbRemainingAmt, #otbApprovedQty, #otbSpentQty, #otbBalanceQty').text('—');
-            $('#otbRemainingAmt').removeClass('text-danger text-success');
-            $('#otbThisPoAmtLabel').hide();
-            return;
-        }
-
-        let subcatSelect = activeRow.find('.subcat-select');
-        let subcatId     = subcatSelect.data('selected-value');
-        let subcatName   = subcatSelect.val() || '';
-        let currentPrice = parseFloat(activeRow.find('.price-input').val()) || 0;
-        let priceRanges  = activeRow.data('price-ranges') || [];
-
-        // Find the buying range that matches the current price
-        let matchedRange = findMatchingRange(priceRanges, currentPrice);
-
-        let approvedAmt, approvedQty, spentAmt, spentQty, rangeLabel;
-
-        if (matchedRange) {
-            // Price matches a specific buying range — show that range's data
-            approvedAmt = matchedRange.approved_amount;
-            approvedQty = matchedRange.approved_quantity;
-            spentAmt    = matchedRange.spent_amount;
-            spentQty    = matchedRange.spent_quantity;
-            rangeLabel  = ' [₹' + matchedRange.buying_from + '–' + matchedRange.buying_to + ']';
-        } else if (priceRanges.length > 0 && currentPrice > 0) {
-            // Price entered but falls in no configured range — warn
-            approvedAmt = 0; approvedQty = 0; spentAmt = 0; spentQty = 0;
-            rangeLabel  = ' [No range for ₹' + currentPrice + ']';
-        } else if (priceRanges.length > 0) {
-            // No price entered yet — show totals across ALL ranges
-            // Use the pre-computed true total from the server to avoid double-counting
-            // unconfigured (0→0) ranges
-            approvedAmt = priceRanges.reduce((s, r) => s + (r.approved_amount  || 0), 0);
-            approvedQty = priceRanges.reduce((s, r) => s + (r.approved_quantity || 0), 0);
-            spentAmt    = activeRow.data('total-spent-amount')   || 0;
-            spentQty    = activeRow.data('total-spent-quantity') || 0;
-            rangeLabel  = ' [All Ranges]';
-        } else {
-            // No ranges configured
-            approvedAmt = 0; approvedQty = 0; spentAmt = 0; spentQty = 0;
-            rangeLabel  = '';
-        }
-
-        // Sum this PO's order amount + qty for rows with same subcategory in the same range
-        let orderAmt = 0, orderQty = 0;
-        $('.item-row').each(function() {
-            let rSubcatId = $(this).find('.subcat-select').data('selected-value');
-            if (String(rSubcatId) !== String(subcatId)) return;
-            let rPrice  = parseFloat($(this).find('.price-input').val()) || 0;
-            let rRanges = $(this).data('price-ranges') || priceRanges;
-            let rRange  = findMatchingRange(rRanges, rPrice);
-            // Match: same range as active row (or both have no matched range)
-            let sameRange = matchedRange
-                ? (rRange && rRange.id === matchedRange.id)
-                : true; // when showing totals, include all rows for this subcat
-            if (sameRange) {
-                let rowData = calculateRow(this);
-                orderAmt += rowData.amt;
-                orderQty += rowData.qty;
-            }
-        });
-
-        let remainingQty = approvedQty - spentQty - orderQty;
-        let remainingAmt = approvedAmt - spentAmt - orderAmt;
-        const fmt = v => '₹' + v.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-        $('#otbActiveSubcatName').text(subcatName + rangeLabel);
-        $('#otbApprovedAmt').text(fmt(approvedAmt)).removeClass('text-danger text-success');
-        $('#otbSpentAmt').text(fmt(spentAmt));
-
-        // Remaining Amount = Budget - Spent - This PO
-        $('#otbRemainingAmt').text(fmt(remainingAmt));
-        if (remainingAmt < 0) {
-            $('#otbRemainingAmt').addClass('text-danger').removeClass('text-success');
-        } else {
-            $('#otbRemainingAmt').addClass('text-success').removeClass('text-danger');
-        }
-        // Show "This PO" sub-label only when there is a draft amount
-        if (orderAmt > 0) {
-            $('#otbThisPoAmt').text(fmt(orderAmt));
-            $('#otbThisPoAmtLabel').show();
-        } else {
-            $('#otbThisPoAmtLabel').hide();
-        }
-
-        $('#otbApprovedQty').text(approvedQty.toLocaleString('en-IN'));
-        $('#otbSpentQty').text(spentQty.toLocaleString('en-IN'));
-        $('#otbBalanceQty').text(remainingQty.toLocaleString('en-IN'));
-
-        if (remainingQty < 0) {
-            $('#otbBalanceQty').addClass('text-danger').removeClass('text-success');
-        } else {
-            $('#otbBalanceQty').addClass('text-success').removeClass('text-danger');
-        }
-    }
-
-    function calculateGrandTotals() {
-        let totalQty = 0;
-        let totalAmt = 0;
-
-        $('.item-row').each(function() {
-            let rowData = calculateRow(this);
-            totalQty += rowData.qty;
-            totalAmt += rowData.amt;
-        });
-
-        $('#gridTotalQty').text(totalQty);
-        $('#gridTotalAmt').text('₹' + totalAmt.toFixed(2));
-
-        updateOtbControl();
-    }
-
-    function distributeQtyToRowSizes(row, newQty) {
-        let alloc = row.data('size-allocations') || {};
-        let keys = Object.keys(alloc);
-        if (keys.length === 0) {
-            let subcatSizes = row.data('subcategory-sizes') || [];
-            keys = subcatSizes.map(s => s.name);
-        }
-        if (keys.length === 0) return;
-
-        let n = parseInt(newQty) || 0;
-        let s = keys.length;
-        let base = Math.floor(n / s);
-        let remainder = n % s;
-
-        let newAlloc = {};
-        let sizeDisplayParts = [];
-        keys.forEach(function(sizeName, idx) {
-            let allocated = base;
-            if (idx < remainder) {
-                allocated += 1;
-            }
-            newAlloc[sizeName] = allocated;
-            if (allocated > 0) {
-                sizeDisplayParts.push(sizeName + '-' + allocated);
-            }
-        });
-
-        row.data('size-allocations', newAlloc);
-        let displayStr = sizeDisplayParts.length > 0 ? sizeDisplayParts.join(', ') : '—';
-        row.find('.size-allocation-text').text(displayStr);
-    }
-
-    function getNewRowHtml() {
-        let rowIdx = $('.item-row').length + 1;
-        return `
-            <tr class="item-row">
-                <td class="row-sno align-middle text-center fw-bold text-muted">${rowIdx}</td>
-                <td class="align-middle">
-                    <div class="custom-select-container">
-                        <input type="text" class="form-control custom-select-input subcat-select" placeholder="-- SubCategory --" value="" data-selected-value="">
-                        <span class="custom-select-arrow"><i class="bi bi-chevron-down"></i></span>
-                        <div class="custom-select-dropdown d-none">
-                        </div>
-                    </div>
-                </td>
-                <td class="align-middle">
-                    <select class="form-select type-select">
-                        <option value="Fresh" selected>Fresh</option>
-                        <option value="Promo">Promo</option>
-                        <option value="Sample">Sample</option>
-                        <option value="Stock">Stock</option>
-                    </select>
-                </td>
-                <td class="align-middle">
-                    <input type="number" class="form-control qty-input" value="0" min="0">
-                </td>
-                <td class="align-middle">
-                    <input type="number" class="form-control price-input" value="0" step="1" min="0">
-                </td>
-                <td class="align-middle">
-                    <input type="number" class="form-control disc-input" value="0" min="0" max="100">
-                </td>
-                <td class="align-middle">
-                    <input type="number" class="form-control tot-qty-input" value="0" readonly>
-                </td>
-                <td class="align-middle text-center">
-                    <span class="size-allocation-text fw-bold text-indigo" style="cursor: pointer; font-size: 0.8rem; text-decoration: underline;" onclick="openSizeModal(this)">—</span>
-                </td>
-                <td class="align-middle">
-                    <span class="tot-amt-display">₹0.00</span>
-                </td>
-                <td class="align-middle text-center">
-                    <button type="button" class="btn btn-link text-danger p-0 remove-row-btn" style="box-shadow: none;">
-                        <i class="bi bi-x-circle-fill fs-5"></i>
-                    </button>
-                </td>
-            </tr>
-        `;
-    }
-
-    function renumberRows() {
-        $('.item-row').each(function(idx) {
-            $(this).find('.row-sno').text(idx + 1);
-        });
-        $('#rowCounter').text($('.item-row').length + " Rows");
-    }
-
-    function addSchedule(from = '', to = '') {
-        let schIdx = $('.schedule-row').length + 1;
-        let schHtml = `
-            <div class="row g-2 schedule-row align-items-center mb-2" data-idx="${schIdx}">
-                <div class="col-md-2 fw-bold text-muted text-center" style="font-size: 0.8rem;">Sch ${schIdx}</div>
-                <div class="col-md-4">
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-white text-muted">From</span>
-                        <input type="date" class="form-control sch-from" value="${from}">
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-white text-muted">To</span>
-                        <input type="date" class="form-control sch-to" value="${to}">
-                    </div>
-                </div>
-                <div class="col-md-2 text-center">
-                    <button type="button" class="btn btn-link text-danger p-0 remove-schedule-btn" style="box-shadow: none;">
-                        <i class="bi bi-trash-fill fs-6"></i>
-                    </button>
-                </div>
-            </div>
-        `;
-        $('#deliverySchedulesContainer').append(schHtml);
-    }
-
-    function renumberSchedules() {
-        $('.schedule-row').each(function(idx) {
-            let label = $(this).find('div').first();
-            label.text("Sch " + (idx + 1));
-        });
-    }
-
-    function countWords() {
-        let text = $('#poNotesText').val().trim();
-        let words = text === '' ? 0 : text.split(/\s+/).length;
-        $('#remarksCounter').text(words + " / 100 words");
-        if (words > 100) {
-            $('#remarksCounter').addClass('text-danger');
-        } else {
-            $('#remarksCounter').removeClass('text-danger');
-        }
-    }
-
-    $(document).ready(function() {
-        if (initialSchedules && initialSchedules.length > 0) {
-            initialSchedules.forEach(s => {
-                addSchedule(s.from, s.to, s.delivery_date);
-            });
-        } else {
-            addSchedule();
-        }
-
-        if ($('.item-row').length === 0) {
-            for (let i = 0; i < 3; i++) {
-                let $newRow = $(getNewRowHtml());
-                $newRow.data('size-allocations', {});
-                $('#orderLinesBody').append($newRow);
-            }
-        }
-        renumberRows();
-        calculateGrandTotals();
-        countWords();
-        
-        // Initialize loaded subcategories with their attributes on page load
-        let rangeLoadPromises = [];
-        $('.item-row').each(function() {
-            let input = $(this).find('.subcat-select');
-            let row = $(this);
-            let val = input.data('selected-value') || input.attr('data-selected-value');
-            if (val) {
-                input.data('selected-text', input.val().trim());
-                let option = $(this).find(`.custom-select-option[data-value="${val}"]`);
-                if (option.length) {
-                    let dataset = option[0].dataset;
-                    for (let key in dataset) {
-                        input.data(key, dataset[key]);
-                        let hyphenated = key.replace(/([A-Z])/g, '-$1').toLowerCase();
-                        input.data(hyphenated, dataset[key]);
-                        input.attr('data-' + hyphenated, dataset[key]);
-                    }
-                }
-                // Fetch buying price ranges for this subcategory
-                let p = $.ajax({
-                    url: URLS.subcategoryRanges.replace('__ID__', encodeURIComponent(val)),
-                    method: 'GET',
-                    success: function(res) {
-                        row.data('price-ranges', (res.success && res.ranges) ? res.ranges : []);
-                        row.data('total-spent-amount', res.total_spent_amount || 0);
-                        row.data('total-spent-quantity', res.total_spent_quantity || 0);
-                    },
-                    error: function() {
-                        row.data('price-ranges', []);
-                        row.data('total-spent-amount', 0);
-                        row.data('total-spent-quantity', 0);
-                    }
-                });
-                rangeLoadPromises.push(p);
-            }
-        });
-        // After all ranges loaded, update OTB
-        $.when.apply($, rangeLoadPromises).always(function() { updateOtbControl(); });
-
-        // Initialize vendor selected-text on page load
-        let initialVendorSelect = $('#poVendorSelect');
-        if (initialVendorSelect.val()) {
-            initialVendorSelect.data('selected-text', initialVendorSelect.val().trim());
-        }
-
-        let vendorXhr = null;
-        function fetchVendors(inputEl, query) {
-            if (vendorXhr) vendorXhr.abort();
-            let dropdown = $(inputEl).closest('.custom-select-container').find('.custom-select-dropdown');
-            dropdown.html('<div class="p-2 text-muted small"><i class="bi bi-hourglass-split me-1"></i>Searching...</div>').removeClass('d-none');
-            
-            vendorXhr = $.ajax({
-                url: URLS.searchVendor,
-                method: 'GET',
-                data: { q: query },
-                success: function(res) {
-                    if (res.vendors && res.vendors.length > 0) {
-                        let html = res.vendors.slice(0, 10).map(v => `
-                            <div class="custom-select-option" 
-                                 data-value="${v.code}"
-                                 data-name="${v.name}"
-                                 data-address="${v.address}"
-                                 data-city="${v.city}"
-                                 data-state="${v.state}"
-                                 data-pin="${v.pin_code}"
-                                 data-email="${v.email}"
-                                 data-phone="${v.phone}"
-                                 data-gst="${v.gst_number}"
-                                 data-contact="${v.contact}">
-                                 ${v.name}
-                            </div>
-                        `).join('');
-                        dropdown.html(html);
-                    } else {
-                        dropdown.html('<div class="p-2 text-muted small">No vendors found</div>');
-                    }
-                },
-                error: function(xhr, status, err) {
-                    if (status !== 'abort') {
-                        dropdown.html('<div class="p-2 text-muted small text-danger">Error loading vendors</div>');
-                    }
-                }
-            });
-        }
-
-        let subcatXhr = null;
-        function fetchSubcategories(inputEl, query) {
-            if (subcatXhr) subcatXhr.abort();
-            let dropdown = $(inputEl).closest('.custom-select-container').find('.custom-select-dropdown');
-
-            // Block if no buyer selected
-            const buyerId = $('#poBuyer').data('selected-value') || '';
-            if (!buyerId) {
-                dropdown.html('<div class="p-2 text-warning small"><i class="bi bi-exclamation-triangle me-1"></i>Please select a buyer first</div>').removeClass('d-none');
-                return;
-            }
-
-            dropdown.html('<div class="p-2 text-muted small"><i class="bi bi-hourglass-split me-1"></i>Searching...</div>').removeClass('d-none');
-
-            subcatXhr = $.ajax({
-                url: URLS.searchSubcategory,
-                method: 'GET',
-                data: { q: query, buyer: buyerId },
-                success: function(res) {
-                    if (res.subcategories && res.subcategories.length > 0) {
-                        let html = res.subcategories.slice(0, 10).map(s => `
-                            <div class="custom-select-option"
-                                 data-value="${s.id}"
-                                 data-price="0.00"
-                                 data-otb-amt="${parseFloat(s.available_budget || 0).toFixed(2)}"
-                                 data-has-budget="${s.has_budget ? 'true' : 'false'}"
-                                 data-approved-amt="${parseFloat(s.approved_amount || 0).toFixed(2)}"
-                                 data-approved-qty="${parseInt(s.approved_quantity || 0)}"
-                                 data-spent-amt="${parseFloat(s.spent_amount || 0).toFixed(2)}"
-                                 data-spent-qty="${parseInt(s.spent_quantity || 0)}">
-                                 ${s.name}
-                            </div>
-                        `).join('');
-                        dropdown.html(html);
-                    } else {
-                        dropdown.html('<div class="p-2 text-muted small">No subcategories found</div>');
-                    }
-                },
-                error: function(xhr, status, err) {
-                    if (status !== 'abort') {
-                        dropdown.html('<div class="p-2 text-muted small text-danger">Error loading subcategories</div>');
-                    }
-                }
-            });
-        }
-
-        // Custom Searchable Dropdown Event Handlers
-        $(document).on('focus click', '.custom-select-input', function() {
-            if (isPoLocked) return;
-            $('.custom-select-dropdown').addClass('d-none');
-            let dropdown = $(this).closest('.custom-select-container').find('.custom-select-dropdown');
-            
-            if ($(this).attr('id') === 'poVendorSelect') {
-                fetchVendors(this, $(this).val());
-            } else if ($(this).hasClass('subcat-select')) {
-                fetchSubcategories(this, $(this).val());
-            } else {
-                dropdown.removeClass('d-none');
-                dropdown.find('.custom-select-option').removeClass('d-none');
-            }
-        });
-
-        $(document).on('input', '.custom-select-input', function() {
-            if (isPoLocked) return;
-            if ($(this).attr('id') === 'poVendorSelect') {
-                fetchVendors(this, $(this).val());
-            } else if ($(this).hasClass('subcat-select')) {
-                fetchSubcategories(this, $(this).val());
-            } else {
-                filterCustomOptions(this);
-            }
-        });
-
-        function filterCustomOptions(inputEl) {
-            let query = $(inputEl).val().toLowerCase();
-            let container = $(inputEl).closest('.custom-select-container');
-            container.find('.custom-select-option').each(function() {
-                let txt = $(this).text().toLowerCase();
-                if (txt.indexOf(query) > -1) {
-                    $(this).removeClass('d-none');
-                } else {
-                    $(this).addClass('d-none');
-                }
-            });
-        }
-
-        $(document).on('mousedown', '.custom-select-option', function(e) {
-            let val = $(this).data('value');
-            let txt = $(this).text().trim();
-            let container = $(this).closest('.custom-select-container');
-            let input = container.find('.custom-select-input');
-            
-            input.val(txt);
-            input.data('selected-value', val);
-            input.data('selected-text', txt);
-            
-            // Copy data-attributes
-            let dataset = this.dataset;
-            for (let key in dataset) {
-                input.data(key, dataset[key]);
-                let hyphenated = key.replace(/([A-Z])/g, '-$1').toLowerCase();
-                input.data(hyphenated, dataset[key]);
-                input.attr('data-' + hyphenated, dataset[key]);
-            }
-
-            container.find('.custom-select-dropdown').addClass('d-none');
-            input.trigger('change');
-        });
-
-        $(document).on('blur', '.custom-select-input', function() {
-            let self = this;
-            setTimeout(function() {
-                validateCustomSelectInput(self);
-                $(self).closest('.custom-select-container').find('.custom-select-dropdown').addClass('d-none');
-            }, 200);
-        });
-
-        // Close dropdowns if clicking outside
-        $(document).on('click', function(e) {
-            if (!$(e.target).closest('.custom-select-container').length) {
-                $('.custom-select-dropdown').addClass('d-none');
-            }
-        });
-
-        $('#addOrderRowBtn').on('click', function() {
-            if (isPoLocked) return;
-            let $newRow = $(getNewRowHtml());
-            $newRow.data('size-allocations', {});
-            $('#orderLinesBody').append($newRow);
-            renumberRows();
-            calculateGrandTotals();
-        });
-
-        $(document).on('click', '.remove-row-btn', function() {
-            if (isPoLocked) return;
-            $(this).closest('tr').remove();
-            renumberRows();
-            calculateGrandTotals();
-        });
-
-        $(document).on('change', '.subcat-select', function() {
-            if (isPoLocked) return;
-            let price = parseFloat($(this).data('price')) || 0;
-            let row = $(this).closest('tr');
-            row.find('.price-input').val(Math.round(price));
-
-            let subcatId = $(this).data('selected-value');
-            if (subcatId) {
-                // Fetch price ranges with approved/spent budgets and store on the row
-                $.ajax({
-                    url: URLS.subcategoryRanges.replace('__ID__', encodeURIComponent(subcatId)),
-                    method: 'GET',
-                    success: function(res) {
-                        if (res.success && res.ranges) {
-                            row.data('price-ranges', res.ranges);
-                        } else {
-                            row.data('price-ranges', []);
+            if (!matched) {
+                let prevVal = $(inputEl).data('selected-value');
+                if (prevVal) {
+                    let prevOption = container.find('.custom-select-option[data-value="' + prevVal + '"]');
+                    if (prevOption.length) {
+                        $(inputEl).val(prevOption.text().trim());
+                        $(inputEl).data('selected-text', prevOption.text().trim());
+                        let dataset = prevOption[0].dataset;
+                        for (let key in dataset) {
+                            $(inputEl).data(key, dataset[key]);
+                            let hyphenated = key.replace(/([A-Z])/g, '-$1').toLowerCase();
+                            $(inputEl).data(hyphenated, dataset[key]);
+                            $(inputEl).attr('data-' + hyphenated, dataset[key]);
                         }
-                        row.data('total-spent-amount', res.total_spent_amount || 0);
-                        row.data('total-spent-quantity', res.total_spent_quantity || 0);
-                        updateOtbControl();
-                    }
-                });
-
-                $.ajax({
-                    url: URLS.subcategorySizes.replace('__ID__', encodeURIComponent(subcatId)),
-                    method: 'GET',
-                    success: function(res) {
-                        if (res.success && res.sizes && res.sizes.length > 0) {
-                            row.data('subcategory-sizes', res.sizes);
-                            openSizeModal(row, res.sizes);
-                        } else {
-                            row.data('subcategory-sizes', []);
-                            row.data('size-allocations', {});
-                            row.find('.size-allocation-text').text('—');
-                        }
-                    }
-                });
-            } else {
-                row.data('price-ranges', []);
-                row.data('subcategory-sizes', []);
-                row.data('size-allocations', {});
-                row.find('.size-allocation-text').text('—');
-            }
-
-            calculateGrandTotals();
-        });
-
-        $(document).on('input change', '.qty-input', function() {
-            if (isPoLocked) return;
-            let row = $(this).closest('tr');
-            let val = parseInt($(this).val()) || 0;
-            let alloc = row.data('size-allocations') || {};
-            let sum = Object.values(alloc).reduce((a, b) => a + b, 0);
-            if (sum !== val) {
-                distributeQtyToRowSizes(row, val);
-            }
-        });
-
-        $(document).on('input change', '.qty-input, .price-input, .disc-input', function() {
-            if (isPoLocked) return;
-            calculateGrandTotals();
-            updateOtbControl();
-        });
-
-        function saveHeaderField(field, value) {
-            if (isPoLocked) return;
-            let data = {};
-            data[field] = value;
-            $.ajax({
-                url: URLS.updatePoFields,
-                method: 'POST',
-                headers: { 'X-CSRFToken': getCookie('csrftoken') },
-                contentType: 'application/json',
-                data: JSON.stringify(data),
-                success: function(res) {
-                    if (!res.success) {
-                        console.error('Failed to auto-save header field:', field, res.error);
+                        return prevVal;
                     }
                 }
-            });
+                $(inputEl).val('');
+                $(inputEl).data('selected-value', '');
+                $(inputEl).data('selected-text', '');
+                selectedVal = '';
+                if ($(inputEl).attr('id') === 'poVendorSelect') {
+                    updateVendorDetailsUI(null);
+                }
+            }
+            return selectedVal;
         }
 
-        $('#poDate').on('change', function() { saveHeaderField('po_date', $(this).val()); });
-        $('#poSeason').on('change', function() { saveHeaderField('season', $(this).val()); });
-        $('#poBuyer').on('change', function() { 
-            let val = $(this).data('selected-value') || '';
-            saveHeaderField('buyer', val); 
-        });
-        $('#poAgent').on('input change', function() { saveHeaderField('agent', $(this).val()); });
-
-        $(document).on('focusin focusout', '.item-row', function() {
-            updateOtbControl();
-        });
-
-        function savePoData(onSuccess, onError) {
-            let items = [];
-            $('.item-row').each(function() {
-                let subcatId = $(this).find('.subcat-select').data('selected-value');
-                if (!subcatId) return;
-
-                let type = $(this).find('.type-select').val();
-                let qty = parseInt($(this).find('.qty-input').val()) || 0;
-                let price = parseFloat($(this).find('.price-input').val()) || 0;
-                let discount = parseFloat($(this).find('.disc-input').val()) || 0;
-                let sizeAllocations = $(this).data('size-allocations') || {};
-
-                items.push({
-                    subcategory_id: subcatId,
-                    item_type: type,
-                    order_qty: qty,
-                    unit_price: price,
-                    discount_percentage: discount,
-                    size_allocations: sizeAllocations
-                });
-            });
-
-            let schedules = [];
-            $('.schedule-row').each(function() {
-                let from = $(this).find('.sch-from').val();
-                let to = $(this).find('.sch-to').val();
-                if (from || to) {
-                    schedules.push({
-                        from: from,
-                        to: to,
-                        delivery_date: ''
-                    });
-                }
-            });
-
-            let buyer = $('#poBuyer').data('selected-value') || '';
-            let agent = $('#poAgent').val().trim();
-            let remarks = $('#poNotesText').val().trim();
-            let poType = $('#poType').data('selected-value') || '';
-            let season = $('#poSeason').val().trim();
-            let poDate = $('#poDate').val();
-
-            showLoading();
-
-            $.ajax({
-                url: URLS.savePo,
-                method: 'POST',
-                headers: { 'X-CSRFToken': getCookie('csrftoken') },
-                contentType: 'application/json',
-                data: JSON.stringify({
-                    buyer: buyer,
-                    agent: agent,
-                    notes: remarks,
-                    delivery_schedules: schedules,
-                    items: items,
-                    po_type: poType,
-                    season: season,
-                    po_date: poDate
-                }),
-                success: function(res) {
-                    if (res.success) {
-                        if (onSuccess) onSuccess(res);
-                    } else {
-                        hideLoading();
-                        if (onError) onError(res.error || 'Failed to save PO');
-                        else showToast(res.error || 'Failed to save PO', 'danger');
-                    }
-                },
-                error: function() {
-                    hideLoading();
-                    if (onError) onError('Communication error occurred while saving PO');
-                    else showToast('Communication error occurred while saving PO', 'danger');
-                }
-            });
-        }
-
-        $('#poVendorSelect').on('change', function() {
-            let vendorId = $(this).data('selected-value');
-            
-            if (vendorId) {
-                updateVendorDetailsUI($(this).data());
-            } else {
-                updateVendorDetailsUI(null);
-            }
-            
-            saveHeaderField('vendor', vendorId || '');
-        });
-
-        $('#addScheduleBtn').on('click', function() {
-            addSchedule();
-            renumberSchedules();
-        });
-
-        $(document).on('click', '.remove-schedule-btn', function() {
-            $(this).closest('.schedule-row').remove();
-            renumberSchedules();
-        });
-
-        $('#poNotesText').on('input', function() {
-            countWords();
-        });
-
-        $('#btnSavePo').on('click', function() {
-            if (isPoLocked) return;
-
-            showLoading();
-            savePoData(function(res) {
-                hideLoading();
-                showToast('Purchase Order saved successfully!');
-                setTimeout(function() {
-                    window.location.href = "{% url 'all_records' %}";
-                }, 1000);
-            }, function(err) {
-                hideLoading();
-                showToast(err || 'Failed to save Purchase Order', 'danger');
-            });
-        });
-
-        $('#btnEditPo').on('click', function() {
-            isPoLocked = !isPoLocked;
-            $('.subcat-select, .type-select, .qty-input, .price-input, .disc-input, #poBuyer, #poAgent, #poSeason, #poDate, #poVendorSelect, #poNotesText, .sch-from, .sch-to').prop('disabled', isPoLocked);
-            $('.remove-row-btn, .remove-schedule-btn, #addOrderRowBtn, #addScheduleBtn').prop('disabled', isPoLocked);
-            
-            if (isPoLocked) {
-                $(this).html('<i class="bi bi-unlock"></i> Unlock PO').removeClass('action-btn-edit').css('background', 'var(--luxury-dark)');
-                showToast('Purchase Order is now locked. Inputs are read-only.', 'info');
-            } else {
-                $(this).html('<i class="bi bi-pencil-square"></i> Lock PO').css('background', '').addClass('action-btn-edit');
-                showToast('Purchase Order is now unlocked. You can edit cells.', 'info');
-            }
-        });
-
-        $('#btnPreviewPo').on('click', function() {
-            savePoData(function(res) {
-                hideLoading();
-                if (res.po_number) {
-                    $('#poNumber').val(res.po_number);
-                }
-                window.open('/preview-po/', '_blank');
-            }, function(err) {
-                hideLoading();
-                showToast(err || 'Failed to save PO before preview', 'danger');
-            });
-        });
-
-        $('#btnSendPo').on('click', function() {
-            $('#sendPoModal').modal('show');
-        });
-
-        function sendNotification(method) {
-            let email = $('#sendEmailInput').val().trim();
-            let whatsapp = $('#sendWhatsappInput').val().trim();
-
-            if (method === 'email' && !email) {
-                showToast('Please specify a valid Vendor Email ID', 'danger');
-                return;
-            }
-            if (method === 'whatsapp' && !whatsapp) {
-                showToast('Please specify a valid WhatsApp Number', 'danger');
-                return;
-            }
-
-            $('#sendPoModal').modal('hide');
-            showLoading();
-
-            // Auto-save the PO first so the link renders the latest updates
-            savePoData(function(res) {
-                hideLoading();
-                if (res.po_number) {
-                    $('#poNumber').val(res.po_number);
-                }
-                
-                let poNum = $('#poNumber').val() || 'Draft';
-                let totalQty = $('#gridTotalQty').text() || '0';
-                let totalAmt = $('#gridTotalAmt').text() || '₹0.00';
-                let poLink = window.location.origin + '/preview-po/';
-                
-                if (method === 'email') {
-                    let subject = `Purchase Order ${poNum} - Jeyarama Stores`;
-                    let body = `Dear Vendor,\n\nPlease find our Purchase Order details below:\n\nPO Number: ${poNum}\nTotal Quantity: ${totalQty}\nTotal Amount: ${totalAmt}\n\nYou can view or print the full Purchase Order document here:\n${poLink}\n\nPlease process this order at your earliest convenience.\n\nBest Regards,\nPurchase Department\nJeyarama Stores`;
-                    
-                    let gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-                    window.open(gmailUrl, '_blank');
-                    showToast('Opening Gmail compose window...');
-                } else if (method === 'whatsapp') {
-                    let cleanPhone = whatsapp.replace(/\D/g, '');
-                    // Handle default country code if not present (assuming India +91 if length is 10 digits)
-                    if (cleanPhone.length === 10) {
-                        cleanPhone = '91' + cleanPhone;
-                    }
-                    let whatsappMsg = `Dear Vendor,\n\nPlease find our Purchase Order details:\n*PO Number:* ${poNum}\n*Total Qty:* ${totalQty}\n*Total Amount:* ${totalAmt}\n\nYou can view or print the full Purchase Order here:\n${poLink}\n\nPlease process this order. Thank you!`;
-                    
-                    let whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(whatsappMsg)}`;
-                    window.open(whatsappUrl, '_blank');
-                    showToast('Opening WhatsApp chat...');
-                }
-            }, function(err) {
-                hideLoading();
-                showToast(err || 'Failed to save PO before sending', 'danger');
-            });
-        }
-
-        $('#btnConfirmSendEmail').on('click', function() {
-            sendNotification('email');
-        });
-
-        $('#btnConfirmSendWhatsapp').on('click', function() {
-            sendNotification('whatsapp');
-        });
-
-        $('#btnRegisterPo').on('click', function() {
-            location.href = '/records/';
-        });
-
-        // Size Selection Modal Logic
-        window.activeRowForSizes = null;
-        window.activeSizesForModal = [];
-
-        window.openSizeModal = function(triggerEl, sizesList) {
-            if (isPoLocked) return;
-            let row = $(triggerEl).closest('tr');
-            window.activeRowForSizes = row;
-
-            if (!sizesList) {
-                let subcatId = row.find('.subcat-select').data('selected-value');
-                if (!subcatId) {
-                    showToast('Please select a subcategory first.', 'warning');
-                    return;
-                }
-                $.ajax({
-                    url: URLS.subcategorySizes.replace('__ID__', encodeURIComponent(subcatId)),
-                    method: 'GET',
-                    success: function(res) {
-                        if (res.success && res.sizes && res.sizes.length > 0) {
-                            window.openSizeModal(row, res.sizes);
-                        } else {
-                            showToast('This subcategory has no sizes defined.', 'info');
-                        }
-                    }
-                });
-                return;
-            }
-
-            window.activeSizesForModal = sizesList;
-
-            let container = $('#modalSizeInputsContainer');
-            container.empty();
-
-            let existingAlloc = row.data('size-allocations') || {};
-            let currentTotQty = parseInt(row.find('.qty-input').val()) || 0;
-
-            $('#modalTotalQty').val(currentTotQty || '');
-            $('#sizeLimitWarning').addClass('d-none');
-
-            // Compute admin approved qty limit for this row's price range
-            let approvedQty = 0, spentQty = 0, remainingQty = null;
-            let priceRanges = row.data('price-ranges') || [];
-            let rowPrice = parseFloat(row.find('.price-input').val()) || 0;
-            let matchedRange = findMatchingRange(priceRanges, rowPrice);
-            if (!matchedRange && priceRanges.length > 0) {
-                // No price yet — sum all ranges
-                approvedQty = priceRanges.reduce((s, r) => s + (r.approved_quantity || 0), 0);
-                spentQty    = priceRanges.reduce((s, r) => s + (r.spent_quantity    || 0), 0);
-            } else if (matchedRange) {
-                approvedQty = matchedRange.approved_quantity || 0;
-                spentQty    = matchedRange.spent_quantity    || 0;
-            }
-            if (approvedQty > 0) {
-                remainingQty = approvedQty - spentQty;
-                $('#sizeApprovedQty').text(approvedQty);
-                $('#sizeSpentQty').text(spentQty);
-                $('#sizeRemainingQty').text(remainingQty).toggleClass('text-danger', remainingQty <= 0).toggleClass('text-success', remainingQty > 0);
-                $('#sizeLimitMax').text(remainingQty);
-                $('#sizeAdminLimitBar').css('display', 'flex');
-            } else {
-                $('#sizeAdminLimitBar').css('display', 'none');
-            }
-            window.sizeApprovedMax = remainingQty; // null means no limit
-
-            sizesList.forEach(function(sizeObj) {
-                let sizeName = sizeObj.name;
-                let qty = existingAlloc[sizeName] || 0;
-                container.append(`
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="fw-bold text-dark text-uppercase" style="width: 30%;">${sizeName}</span>
-                        <input type="number" class="form-control form-control-sm size-qty-input" data-size-name="${sizeName}" value="${qty}" min="0" style="width: 65%;">
+        function updateVendorDetailsUI(dataset) {
+            if (!dataset || !dataset.value) {
+                $('#vendorDetailsBox').html(`
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-info-circle-fill text-primary" style="font-size: 1.1rem;"></i>
+                        <span>Select a vendor to view details</span>
                     </div>
                 `);
-            });
+                return;
+            }
+            
+            let name = dataset.name || '';
+            let code = dataset.value || '';
+            let address = dataset.address || 'N/A';
+            let city = dataset.city || '';
+            let state = dataset.state || '';
+            let pin = dataset.pin || '';
+            let email = dataset.email || 'N/A';
+            let phone = dataset.phone || 'N/A';
+            let gst = dataset.gst || 'N/A';
+            let contact = dataset.contact || 'N/A';
 
-            let sumExisting = Object.values(existingAlloc).reduce((a, b) => a + b, 0);
-            if (sumExisting !== currentTotQty) {
-                distributeEqually(currentTotQty, sizesList);
+            let locationStr = city;
+            if (state) locationStr += (locationStr ? ', ' : '') + state;
+            if (pin) locationStr += (locationStr ? ' - ' : '') + pin;
+
+            $('#vendorDetailsBox').html(`
+                <div class="d-flex flex-wrap gap-4 align-items-center">
+                    <div>
+                        <strong class="d-block" style="font-size: 0.95rem; color: #0f172a;">${name}</strong>
+                        <span class="text-muted small">Code: ${code}</span>
+                    </div>
+                    <div style="height: 24px; width: 1px; background-color: #cbd5e1;" class="d-none d-md-block"></div>
+                    <div>
+                        <span class="d-block"><i class="bi bi-geo-alt me-1 text-primary"></i>${address}</span>
+                        <span class="text-muted small">${locationStr}</span>
+                    </div>
+                    <div style="height: 24px; width: 1px; background-color: #cbd5e1;" class="d-none d-md-block"></div>
+                    <div>
+                        <span class="d-block"><i class="bi bi-envelope me-1 text-primary"></i>${email}</span>
+                        <span class="d-block"><i class="bi bi-telephone me-1 text-primary"></i>${phone}</span>
+                    </div>
+                    <div style="height: 24px; width: 1px; background-color: #cbd5e1;" class="d-none d-md-block"></div>
+                    <div>
+                        <span class="d-block"><strong>GSTIN:</strong> ${gst}</span>
+                        <span class="text-muted small">Contact: ${contact}</span>
+                    </div>
+                </div>
+            `);
+        }
+
+        function showLoading() { $('#loadingOverlay').removeClass('d-none'); }
+        function hideLoading() { $('#loadingOverlay').addClass('d-none'); }
+
+        function showToast(message, type = 'success') {
+            $('.toast-custom').remove();
+            const toast = $(`
+                <div class="toast-custom toast-${type}" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; background: ${type==='success'?'#10b981':'#ef4444'}; color: white; padding: 12px 24px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 10px; font-weight: 600;">
+                    <i class="bi bi-${type === 'success' ? 'check-circle-fill' : 'exclamation-circle-fill'}"></i>
+                    <span>${message}</span>
+                    <button type="button" class="btn-close btn-close-white" onclick="this.parentElement.remove()" style="opacity: 0.8; margin-left: 10px;"></button>
+                </div>
+            `);
+            $('body').append(toast);
+            setTimeout(() => {
+                toast.fadeOut(300, function() { $(this).remove(); });
+            }, 3500);
+        }
+
+        function calculateRow(row) {
+            let price = parseFloat($(row).find('.price-input').val()) || 0;
+            let qty = parseInt($(row).find('.qty-input').val()) || 0;
+            let discount = parseFloat($(row).find('.disc-input').val()) || 0;
+
+            let totQty = qty;
+            $(row).find('.tot-qty-input').val(totQty);
+
+            let discountFactor = 1 - (discount / 100);
+            let totAmt = totQty * price * discountFactor;
+            $(row).find('.tot-amt-display').text('₹' + totAmt.toFixed(2));
+            
+            return { qty: totQty, amt: totAmt };
+        }
+
+        // Find which buying price range a given price falls into
+        function findMatchingRange(ranges, price) {
+            if (!ranges || !ranges.length || price <= 0) return null;
+            for (let r of ranges) {
+                if (price >= r.buying_from && price <= r.buying_to) return r;
+            }
+            return null;
+        }
+
+        function updateOtbControl() {
+            // Prefer the focused/active row; fall back to the first row with a subcategory
+            let activeRow = $('.item-row:focus-within');
+            if (!activeRow.length || !activeRow.find('.subcat-select').data('selected-value')) {
+                activeRow = null;
+                $('.item-row').each(function() {
+                    if ($(this).find('.subcat-select').data('selected-value')) {
+                        activeRow = $(this);
+                        return false;
+                    }
+                });
             }
 
-            $('#sizeSelectionModal').modal('show');
-        };
+            if (!activeRow) {
+                $('#otbActiveSubcatName').text('NO SUBCATEGORY SELECTED');
+                $('#otbApprovedAmt, #otbSpentAmt, #otbRemainingAmt, #otbApprovedQty, #otbSpentQty, #otbBalanceQty').text('—');
+                $('#otbRemainingAmt').removeClass('text-danger text-success');
+                $('#otbThisPoAmtLabel').hide();
+                return;
+            }
 
-        function distributeEqually(totalQty, sizesList) {
-            if (!sizesList || sizesList.length === 0) return;
-            let n = parseInt(totalQty) || 0;
-            let s = sizesList.length;
+            let subcatSelect = activeRow.find('.subcat-select');
+            let subcatId     = subcatSelect.data('selected-value');
+            let subcatName   = subcatSelect.val() || '';
+            let currentPrice = parseFloat(activeRow.find('.price-input').val()) || 0;
+            let priceRanges  = activeRow.data('price-ranges') || [];
+
+            // Find the buying range that matches the current price
+            let matchedRange = findMatchingRange(priceRanges, currentPrice);
+
+            let approvedAmt, approvedQty, spentAmt, spentQty, rangeLabel;
+
+            if (matchedRange) {
+                // Price matches a specific buying range — show that range's data
+                approvedAmt = matchedRange.approved_amount;
+                approvedQty = matchedRange.approved_quantity;
+                spentAmt    = matchedRange.spent_amount;
+                spentQty    = matchedRange.spent_quantity;
+                rangeLabel  = ' [₹' + matchedRange.buying_from + '–' + matchedRange.buying_to + ']';
+            } else if (priceRanges.length > 0 && currentPrice > 0) {
+                // Price entered but falls in no configured range — warn
+                approvedAmt = 0; approvedQty = 0; spentAmt = 0; spentQty = 0;
+                rangeLabel  = ' [No range for ₹' + currentPrice + ']';
+            } else if (priceRanges.length > 0) {
+                // No price entered yet — show totals across ALL ranges
+                // Use the pre-computed true total from the server to avoid double-counting
+                // unconfigured (0→0) ranges
+                approvedAmt = priceRanges.reduce((s, r) => s + (r.approved_amount  || 0), 0);
+                approvedQty = priceRanges.reduce((s, r) => s + (r.approved_quantity || 0), 0);
+                spentAmt    = activeRow.data('total-spent-amount')   || 0;
+                spentQty    = activeRow.data('total-spent-quantity') || 0;
+                rangeLabel  = ' [All Ranges]';
+            } else {
+                // No ranges configured
+                approvedAmt = 0; approvedQty = 0; spentAmt = 0; spentQty = 0;
+                rangeLabel  = '';
+            }
+
+            // Sum this PO's order amount + qty for rows with same subcategory in the same range
+            let orderAmt = 0, orderQty = 0;
+            $('.item-row').each(function() {
+                let rSubcatId = $(this).find('.subcat-select').data('selected-value');
+                if (String(rSubcatId) !== String(subcatId)) return;
+                let rPrice  = parseFloat($(this).find('.price-input').val()) || 0;
+                let rRanges = $(this).data('price-ranges') || priceRanges;
+                let rRange  = findMatchingRange(rRanges, rPrice);
+                // Match: same range as active row (or both have no matched range)
+                let sameRange = matchedRange
+                    ? (rRange && rRange.id === matchedRange.id)
+                    : true; // when showing totals, include all rows for this subcat
+                if (sameRange) {
+                    let rowData = calculateRow(this);
+                    orderAmt += rowData.amt;
+                    orderQty += rowData.qty;
+                }
+            });
+
+            let remainingQty = approvedQty - spentQty - orderQty;
+            let remainingAmt = approvedAmt - spentAmt - orderAmt;
+            const fmt = v => '₹' + v.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            $('#otbActiveSubcatName').text(subcatName + rangeLabel);
+            $('#otbApprovedAmt').text(fmt(approvedAmt)).removeClass('text-danger text-success');
+            $('#otbSpentAmt').text(fmt(spentAmt));
+
+            // Remaining Amount = Budget - Spent - This PO
+            $('#otbRemainingAmt').text(fmt(remainingAmt));
+            if (remainingAmt < 0) {
+                $('#otbRemainingAmt').addClass('text-danger').removeClass('text-success');
+            } else {
+                $('#otbRemainingAmt').addClass('text-success').removeClass('text-danger');
+            }
+            // Show "This PO" sub-label only when there is a draft amount
+            if (orderAmt > 0) {
+                $('#otbThisPoAmt').text(fmt(orderAmt));
+                $('#otbThisPoAmtLabel').show();
+            } else {
+                $('#otbThisPoAmtLabel').hide();
+            }
+
+            $('#otbApprovedQty').text(approvedQty.toLocaleString('en-IN'));
+            $('#otbSpentQty').text(spentQty.toLocaleString('en-IN'));
+            $('#otbBalanceQty').text(remainingQty.toLocaleString('en-IN'));
+
+            if (remainingQty < 0) {
+                $('#otbBalanceQty').addClass('text-danger').removeClass('text-success');
+            } else {
+                $('#otbBalanceQty').addClass('text-success').removeClass('text-danger');
+            }
+        }
+
+        function calculateGrandTotals() {
+            let totalQty = 0;
+            let totalAmt = 0;
+
+            $('.item-row').each(function() {
+                let rowData = calculateRow(this);
+                totalQty += rowData.qty;
+                totalAmt += rowData.amt;
+            });
+
+            $('#gridTotalQty').text(totalQty);
+            $('#gridTotalAmt').text('₹' + totalAmt.toFixed(2));
+
+            updateOtbControl();
+        }
+
+        function distributeQtyToRowSizes(row, newQty) {
+            let alloc = row.data('size-allocations') || {};
+            let keys = Object.keys(alloc);
+            if (keys.length === 0) {
+                let subcatSizes = row.data('subcategory-sizes') || [];
+                keys = subcatSizes.map(s => s.name);
+            }
+            if (keys.length === 0) return;
+
+            let n = parseInt(newQty) || 0;
+            let s = keys.length;
             let base = Math.floor(n / s);
             let remainder = n % s;
 
-            $('#modalSizeInputsContainer .size-qty-input').each(function(idx) {
+            let newAlloc = {};
+            keys.forEach(function(sizeName, idx) {
                 let allocated = base;
                 if (idx < remainder) {
                     allocated += 1;
                 }
-                $(this).val(allocated);
+                newAlloc[sizeName] = allocated;
+            });
+
+            row.data('size-allocations', newAlloc);
+            row.find('.size-allocation-text').html(formatSizesHtml(newAlloc));
+        }
+
+        function getNewRowHtml() {
+            let rowIdx = $('.item-row').length + 1;
+            return `
+                <tr class="item-row">
+                    <td class="row-sno align-middle text-center fw-bold text-muted">${rowIdx}</td>
+                    <td class="align-middle">
+                        <div class="custom-select-container">
+                            <input type="text" class="form-control custom-select-input subcat-select" placeholder="-- SubCategory --" value="" data-selected-value="">
+                            <span class="custom-select-arrow"><i class="bi bi-chevron-down"></i></span>
+                            <div class="custom-select-dropdown d-none">
+                            </div>
+                        </div>
+                    </td>
+                    <td class="align-middle">
+                        <input type="number" class="form-control qty-input" value="0" min="0">
+                    </td>
+                    <td class="align-middle">
+                        <input type="number" class="form-control price-input" value="0" step="1" min="0">
+                    </td>
+                    <td class="align-middle">
+                        <input type="number" class="form-control disc-input" value="0" min="0" max="100">
+                    </td>
+                    <td class="align-middle">
+                        <input type="number" class="form-control tot-qty-input" value="0" readonly>
+                    </td>
+                    <td class="align-middle text-center">
+                        <span class="size-allocation-text d-flex flex-wrap justify-content-center gap-1" style="cursor: pointer;" onclick="openSizeModal(this)">—</span>
+                    </td>
+                    <td class="align-middle">
+                        <span class="tot-amt-display">₹0.00</span>
+                    </td>
+                    <td class="align-middle text-center">
+                        <button type="button" class="btn btn-link text-danger p-0 remove-row-btn" style="box-shadow: none;">
+                            <i class="bi bi-x-circle-fill fs-5"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+
+        function renumberRows() {
+            $('.item-row').each(function(idx) {
+                $(this).find('.row-sno').text(idx + 1);
+            });
+            $('#rowCounter').text($('.item-row').length + " Rows");
+        }
+
+        function addSchedule(from = '', to = '') {
+            let schIdx = $('.schedule-row').length + 1;
+            let schHtml = `
+                <div class="row g-2 schedule-row align-items-center mb-2" data-idx="${schIdx}">
+                    <div class="col-md-2 fw-bold text-muted text-center" style="font-size: 0.8rem;">Sch ${schIdx}</div>
+                    <div class="col-md-4">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white text-muted">From</span>
+                            <input type="date" class="form-control sch-from" value="${from}">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white text-muted">To</span>
+                            <input type="date" class="form-control sch-to" value="${to}">
+                        </div>
+                    </div>
+                    <div class="col-md-2 text-center">
+                        <button type="button" class="btn btn-link text-danger p-0 remove-schedule-btn" style="box-shadow: none;">
+                            <i class="bi bi-trash-fill fs-6"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            $('#deliverySchedulesContainer').append(schHtml);
+        }
+
+        function renumberSchedules() {
+            $('.schedule-row').each(function(idx) {
+                let label = $(this).find('div').first();
+                label.text("Sch " + (idx + 1));
             });
         }
 
-        $(document).on('input', '#modalTotalQty', function() {
-            let totalQty = parseInt($(this).val()) || 0;
-            const max = window.sizeApprovedMax;
-
-            // Enforce admin limit
-            if (max !== null && totalQty > max) {
-                $(this).val(max);
-                totalQty = max;
-                $('#sizeLimitWarning').removeClass('d-none');
-                $('#sizeRemainingQty').text(0).addClass('text-danger').removeClass('text-success');
+        function countWords() {
+            let text = $('#poNotesText').val().trim();
+            let words = text === '' ? 0 : text.split(/\s+/).length;
+            $('#remarksCounter').text(words + " / 100 words");
+            if (words > 100) {
+                $('#remarksCounter').addClass('text-danger');
             } else {
-                $('#sizeLimitWarning').addClass('d-none');
-                if (max !== null) {
-                    let rem = max - totalQty;
-                    $('#sizeRemainingQty').text(rem).toggleClass('text-danger', rem < 0).toggleClass('text-success', rem >= 0);
+                $('#remarksCounter').removeClass('text-danger');
+            }
+        }
+
+        $(document).ready(function() {
+            if (initialSchedules && initialSchedules.length > 0) {
+                initialSchedules.forEach(s => {
+                    addSchedule(s.from, s.to, s.delivery_date);
+                });
+            } else {
+                addSchedule();
+            }
+
+            if ($('.item-row').length === 0) {
+                for (let i = 0; i < 3; i++) {
+                    let $newRow = $(getNewRowHtml());
+                    $newRow.data('size-allocations', {});
+                    $('#orderLinesBody').append($newRow);
                 }
             }
-            distributeEqually(totalQty, window.activeSizesForModal);
-        });
+            renumberRows();
+            calculateGrandTotals();
+            countWords();
+            
+            // Initialize loaded subcategories with their attributes on page load
+            let rangeLoadPromises = [];
+            $('.item-row').each(function() {
+                let input = $(this).find('.subcat-select');
+                let row = $(this);
+                let val = input.data('selected-value') || input.attr('data-selected-value');
+                if (val) {
+                    input.data('selected-text', input.val().trim());
+                    let option = $(this).find(`.custom-select-option[data-value="${val}"]`);
+                    if (option.length) {
+                        let dataset = option[0].dataset;
+                        for (let key in dataset) {
+                            input.data(key, dataset[key]);
+                            let hyphenated = key.replace(/([A-Z])/g, '-$1').toLowerCase();
+                            input.data(hyphenated, dataset[key]);
+                            input.attr('data-' + hyphenated, dataset[key]);
+                        }
+                    }
+                    // Fetch buying price ranges for this subcategory
+                    let p = $.ajax({
+                        url: URLS.subcategoryRanges.replace('__ID__', encodeURIComponent(val)),
+                        method: 'GET',
+                        data: {
+                            season: $('#poSeason').val() || '',
+                            buyer: $('#poBuyer').data('selected-value') || ''
+                        },
+                        success: function(res) {
+                            row.data('price-ranges', (res.success && res.ranges) ? res.ranges : []);
+                            row.data('total-spent-amount', res.total_spent_amount || 0);
+                            row.data('total-spent-quantity', res.total_spent_quantity || 0);
+                        },
+                        error: function() {
+                            row.data('price-ranges', []);
+                            row.data('total-spent-amount', 0);
+                            row.data('total-spent-quantity', 0);
+                        }
+                    });
+                    rangeLoadPromises.push(p);
+                }
+            });
+            // After all ranges loaded, update OTB
+            $.when.apply($, rangeLoadPromises).always(function() { updateOtbControl(); });
 
-        $(document).on('input', '.size-qty-input', function() {
-            // Total qty stays FIXED — when one size changes, adjust others to compensate
-            const changedInput = $(this);
-            const totalQty = parseInt($('#modalTotalQty').val()) || 0;
-
-            let changedVal = parseInt(changedInput.val()) || 0;
-
-            // Cap at total
-            if (changedVal > totalQty) {
-                changedVal = totalQty;
-                changedInput.val(changedVal);
+            // Initialize vendor selected-text on page load
+            let initialVendorSelect = $('#poVendorSelect');
+            if (initialVendorSelect.val()) {
+                initialVendorSelect.data('selected-text', initialVendorSelect.val().trim());
             }
 
-            // Collect other inputs
-            let otherInputs = [];
-            $('#modalSizeInputsContainer .size-qty-input').each(function() {
-                if (this !== changedInput[0]) otherInputs.push($(this));
+            let vendorXhr = null;
+            function fetchVendors(inputEl, query) {
+                if (vendorXhr) vendorXhr.abort();
+                let dropdown = $(inputEl).closest('.custom-select-container').find('.custom-select-dropdown');
+                dropdown.html('<div class="p-2 text-muted small"><i class="bi bi-hourglass-split me-1"></i>Searching...</div>').removeClass('d-none');
+                
+                vendorXhr = $.ajax({
+                    url: URLS.searchVendor,
+                    method: 'GET',
+                    data: { q: query },
+                    success: function(res) {
+                        if (res.vendors && res.vendors.length > 0) {
+                            let html = res.vendors.slice(0, 10).map(v => `
+                                <div class="custom-select-option"
+                                    data-value="${v.code}"
+                                    data-name="${v.name}"
+                                    data-address="${v.address}"
+                                    data-city="${v.city}"
+                                    data-state="${v.state}"
+                                    data-pin="${v.pin_code}"
+                                    data-email="${v.email}"
+                                    data-phone="${v.phone}"
+                                    data-gst="${v.gst_number}"
+                                    data-contact="${v.contact}">
+                                    ${v.name} <span style="color:#94a3b8;font-size:.8em;">(${v.code})</span>
+                                </div>
+                            `).join('');
+                            dropdown.html(html);
+                        } else {
+                            dropdown.html('<div class="p-2 text-muted small">No vendors found</div>');
+                        }
+                    },
+                    error: function(xhr, status, err) {
+                        if (status !== 'abort') {
+                            dropdown.html('<div class="p-2 text-muted small text-danger">Error loading vendors</div>');
+                        }
+                    }
+                });
+            }
+
+            let subcatXhr = null;
+            function fetchSubcategories(inputEl, query) {
+                if (subcatXhr) subcatXhr.abort();
+                let dropdown = $(inputEl).closest('.custom-select-container').find('.custom-select-dropdown');
+
+                // Block if no buyer selected
+                const buyerId = $('#poBuyer').data('selected-value') || '';
+                if (!buyerId) {
+                    dropdown.html('<div class="p-2 text-warning small"><i class="bi bi-exclamation-triangle me-1"></i>Please select a buyer first</div>').removeClass('d-none');
+                    return;
+                }
+
+                dropdown.html('<div class="p-2 text-muted small"><i class="bi bi-hourglass-split me-1"></i>Searching...</div>').removeClass('d-none');
+
+                subcatXhr = $.ajax({
+                    url: URLS.searchSubcategory,
+                    method: 'GET',
+                    data: { q: query, buyer: buyerId, season: $('#poSeason').val() || '' },
+                    success: function(res) {
+                        if (res.subcategories && res.subcategories.length > 0) {
+                            let html = res.subcategories.slice(0, 10).map(s => `
+                                <div class="custom-select-option"
+                                    data-value="${s.id}"
+                                    data-price="0.00"
+                                    data-otb-amt="${parseFloat(s.available_budget || 0).toFixed(2)}"
+                                    data-has-budget="${s.has_budget ? 'true' : 'false'}"
+                                    data-approved-amt="${parseFloat(s.approved_amount || 0).toFixed(2)}"
+                                    data-approved-qty="${parseInt(s.approved_quantity || 0)}"
+                                    data-spent-amt="${parseFloat(s.spent_amount || 0).toFixed(2)}"
+                                    data-spent-qty="${parseInt(s.spent_quantity || 0)}">
+                                    ${s.name}
+                                </div>
+                            `).join('');
+                            dropdown.html(html);
+                        } else {
+                            dropdown.html('<div class="p-2 text-muted small">No subcategories found</div>');
+                        }
+                    },
+                    error: function(xhr, status, err) {
+                        if (status !== 'abort') {
+                            dropdown.html('<div class="p-2 text-muted small text-danger">Error loading subcategories</div>');
+                        }
+                    }
+                });
+            }
+
+            // Custom Searchable Dropdown Event Handlers
+            $(document).on('focus click', '.custom-select-input', function() {
+                if (isPoLocked) return;
+                $('.custom-select-dropdown').addClass('d-none');
+                let dropdown = $(this).closest('.custom-select-container').find('.custom-select-dropdown');
+
+                if ($(this).attr('id') === 'poVendorSelect') {
+                    // Clear input so user can type a fresh search; keep selected-value intact
+                    $(this).val('');
+                    fetchVendors(this, '');
+                } else if ($(this).hasClass('subcat-select')) {
+                    fetchSubcategories(this, '');
+                } else {
+                    dropdown.removeClass('d-none');
+                    dropdown.find('.custom-select-option').removeClass('d-none');
+                }
             });
 
-            // How much remains for other sizes
-            let remaining = totalQty - changedVal;
-            let othersSum = otherInputs.reduce((s, inp) => s + (parseInt(inp.val()) || 0), 0);
-
-            if (othersSum > remaining) {
-                // Need to reduce others — take from the last inputs first
-                let toReduce = othersSum - remaining;
-                for (let i = otherInputs.length - 1; i >= 0 && toReduce > 0; i--) {
-                    let v = parseInt(otherInputs[i].val()) || 0;
-                    let cut = Math.min(v, toReduce);
-                    otherInputs[i].val(v - cut);
-                    toReduce -= cut;
+            $(document).on('input', '.custom-select-input', function() {
+                if (isPoLocked) return;
+                if ($(this).attr('id') === 'poVendorSelect') {
+                    fetchVendors(this, $(this).val());
+                } else if ($(this).hasClass('subcat-select')) {
+                    fetchSubcategories(this, $(this).val());
+                } else {
+                    filterCustomOptions(this);
                 }
-            }
-            // If othersSum < remaining: leave unallocated (don't auto-increase others)
-        });
-
-        $(document).on('keypress', '#modalTotalQty, .size-qty-input', function(e) {
-            if (e.which === 13) {
-                e.preventDefault();
-                $('#btnConfirmSizes').click();
-            }
-        });
-
-        $('#btnConfirmSizes').on('click', function() {
-            let alloc = {};
-            let sum = 0;
-            let sizeDisplayParts = [];
-
-            $('#modalSizeInputsContainer .size-qty-input').each(function() {
-                let sizeName = $(this).data('size-name');
-                let qty = parseInt($(this).val()) || 0;
-                if (qty > 0) {
-                    alloc[sizeName] = qty;
-                    sizeDisplayParts.push(`${sizeName}-${qty}`);
-                }
-                sum += qty;
             });
 
-            // Block if over admin limit
-            const max = window.sizeApprovedMax;
-            if (max !== null && sum > max) {
-                $('#sizeLimitWarning').removeClass('d-none');
-                $('#sizeLimitMax').text(max);
-                return;
+            function filterCustomOptions(inputEl) {
+                let query = $(inputEl).val().toLowerCase();
+                let container = $(inputEl).closest('.custom-select-container');
+                container.find('.custom-select-option').each(function() {
+                    let txt = $(this).text().toLowerCase();
+                    if (txt.indexOf(query) > -1) {
+                        $(this).removeClass('d-none');
+                    } else {
+                        $(this).addClass('d-none');
+                    }
+                });
             }
 
-            if (window.activeRowForSizes) {
-                window.activeRowForSizes.data('size-allocations', alloc);
+            $(document).on('mousedown', '.custom-select-option', function(e) {
+                let val = $(this).data('value');
+                // Use data-name if available (vendor options) so code span is excluded from input text
+                let txt = $(this).data('name') ? $(this).data('name') : $(this).text().trim();
+                let container = $(this).closest('.custom-select-container');
+                let input = container.find('.custom-select-input');
 
-                let displayStr = sizeDisplayParts.length > 0 ? sizeDisplayParts.join(', ') : '—';
-                window.activeRowForSizes.find('.size-allocation-text').text(displayStr);
+                input.val(txt);
+                input.data('selected-value', val);
+                input.data('selected-text', txt);
+                
+                // Copy data-attributes
+                let dataset = this.dataset;
+                for (let key in dataset) {
+                    input.data(key, dataset[key]);
+                    let hyphenated = key.replace(/([A-Z])/g, '-$1').toLowerCase();
+                    input.data(hyphenated, dataset[key]);
+                    input.attr('data-' + hyphenated, dataset[key]);
+                }
 
-                window.activeRowForSizes.find('.qty-input').val(sum).trigger('input');
+                container.find('.custom-select-dropdown').addClass('d-none');
+                input.trigger('change');
+            });
+
+            $(document).on('blur', '.custom-select-input', function() {
+                let self = this;
+                setTimeout(function() {
+                    validateCustomSelectInput(self);
+                    $(self).closest('.custom-select-container').find('.custom-select-dropdown').addClass('d-none');
+                }, 200);
+            });
+
+            // Close dropdowns if clicking outside
+            $(document).on('click', function(e) {
+                if (!$(e.target).closest('.custom-select-container').length) {
+                    $('.custom-select-dropdown').addClass('d-none');
+                }
+            });
+
+
+            $('#addOrderRowBtn').on('click', function() {
+                if (isPoLocked) return;
+                let $newRow = $(getNewRowHtml());
+                $newRow.data('size-allocations', {});
+                $('#orderLinesBody').append($newRow);
+                renumberRows();
+                calculateGrandTotals();
+            });
+
+            $(document).on('click', '.remove-row-btn', function() {
+                if (isPoLocked) return;
+                $(this).closest('tr').remove();
+                renumberRows();
+                calculateGrandTotals();
+            });
+
+            $(document).on('change', '.subcat-select', function() {
+                if (isPoLocked) return;
+                let price = parseFloat($(this).data('price')) || 0;
+                let row = $(this).closest('tr');
+                row.find('.price-input').val(Math.round(price));
+
+                let subcatId = $(this).data('selected-value');
+                let subcatText = $(this).data('selected-text') || $(this).val();
+
+                if (subcatId) {
+                    // Fetch price ranges with approved/spent budgets and store on the row
+                    let buyerVal = $('#poBuyer').attr('data-selected-value') || $('#poBuyer').data('selected-value') || '';
+                    let vendorVal = $('#poVendorSelect').attr('data-selected-value') || $('#poVendorSelect').data('selected-value') || '';
+
+                    $.ajax({
+                        url: URLS.subcategoryRanges.replace('__ID__', encodeURIComponent(subcatId)),
+                        method: 'GET',
+                        data: {
+                            season: $('#poSeason').val() || '',
+                            buyer: buyerVal
+                        },
+                        success: function(res) {
+                            if (res.success && res.ranges) {
+                                row.data('price-ranges', res.ranges);
+                            } else {
+                                row.data('price-ranges', []);
+                            }
+                            row.data('total-spent-amount', res.total_spent_amount || 0);
+                            row.data('total-spent-quantity', res.total_spent_quantity || 0);
+                            updateOtbControl();
+                        }
+                    });
+
+                    $.ajax({
+                        url: URLS.subcategorySizes.replace('__ID__', encodeURIComponent(subcatId)),
+                        method: 'GET',
+                        data: {
+                            vendor_id: vendorVal,
+                            buyer_id: buyerVal,
+                            ratio_type_id: $('#poRatioType').attr('data-selected-value') || $('#poRatioType').data('selected-value') || ''
+                        },
+                        success: function(res) {
+                            if (res.success && res.sizes && res.sizes.length > 0) {
+                                row.data('subcategory-sizes', res.sizes);
+                                row.data('subcategory-ratio', res.ratio);
+                                openSizeModal(row, res.sizes, res.ratio);
+                            } else {
+                                row.data('subcategory-sizes', []);
+                                row.data('subcategory-ratio', null);
+                                row.data('size-allocations', {});
+                                row.find('.size-allocation-text').text('—');
+                            }
+                        }
+                    });
+                } else {
+                    row.data('price-ranges', []);
+                    row.data('subcategory-sizes', []);
+                    row.data('size-allocations', {});
+                    row.find('.size-allocation-text').text('—');
+                }
+
+                calculateGrandTotals();
+            });
+
+            $(document).on('input change', '.qty-input', function() {
+                if (isPoLocked) return;
+                let row = $(this).closest('tr');
+                let val = parseInt($(this).val()) || 0;
+                let alloc = row.data('size-allocations') || {};
+                let sum = Object.values(alloc).reduce((a, b) => a + b, 0);
+                if (sum !== val) {
+                    distributeQtyToRowSizes(row, val);
+                }
+            });
+
+            $(document).on('input change', '.qty-input, .price-input, .disc-input', function() {
+                if (isPoLocked) return;
                 calculateGrandTotals();
                 updateOtbControl();
+            });
+
+            function saveHeaderField(field, value) {
+                if (isPoLocked) return;
+                let data = {};
+                data[field] = value;
+                $.ajax({
+                    url: URLS.updatePoFields,
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                    contentType: 'application/json',
+                    data: JSON.stringify(data),
+                    success: function(res) {
+                        if (!res.success) {
+                            console.error('Failed to auto-save header field:', field, res.error);
+                        }
+                    }
+                });
             }
 
-            $('#sizeSelectionModal').modal('hide');
-        });
+            function reloadAllRowRanges() {
+                let rangeLoadPromises = [];
+                $('.item-row').each(function() {
+                    let row = $(this);
+                    let subcatSelect = row.find('.subcat-select');
+                    let val = subcatSelect.data('selected-value');
+                    if (val) {
+                        let p = $.ajax({
+                            url: URLS.subcategoryRanges.replace('__ID__', encodeURIComponent(val)),
+                            method: 'GET',
+                            data: {
+                                season: $('#poSeason').val() || '',
+                                buyer: $('#poBuyer').data('selected-value') || ''
+                            },
+                            success: function(res) {
+                                row.data('price-ranges', (res.success && res.ranges) ? res.ranges : []);
+                                row.data('total-spent-amount', res.total_spent_amount || 0);
+                                row.data('total-spent-quantity', res.total_spent_quantity || 0);
+                            },
+                            error: function() {
+                                row.data('price-ranges', []);
+                                row.data('total-spent-amount', 0);
+                                row.data('total-spent-quantity', 0);
+                            }
+                        });
+                        rangeLoadPromises.push(p);
+                    }
+                });
+                $.when.apply($, rangeLoadPromises).always(function() {
+                    calculateGrandTotals();
+                    updateOtbControl();
+                });
+            }
 
-        // Initialize sizes from template data on page load
-        $('.item-row').each(function() {
-            let attrVal = $(this).attr('data-sizes-json');
-            if (attrVal) {
-                try {
-                    let cleanJson = attrVal.replace(/'/g, '"');
-                    let sizes = JSON.parse(cleanJson);
-                    $(this).data('size-allocations', sizes);
-                } catch(e) {
-                    console.error('Failed to parse size allocations for row:', e);
+            $('#poDate').on('change', function() { saveHeaderField('po_date', $(this).val()); });
+            $('#poSeason').on('change', function() { 
+                saveHeaderField('season', $(this).val()); 
+                reloadAllRowRanges();
+            });
+            $('#poBuyer').on('change', function() { 
+                let val = $(this).data('selected-value') || '';
+                saveHeaderField('buyer', val); 
+                reloadAllRowRanges();
+            });
+            $('#poAgent').on('input change', function() { saveHeaderField('agent', $(this).val()); });
+            $('#poRatioType').on('change', function() { 
+                let val = $(this).data('selected-value') || '';
+                saveHeaderField('ratio_type', val); 
+                // Clear cached ratios/sizes on all rows so they reload
+                $('.item-row').each(function() {
+                    $(this).removeData('subcategory-sizes');
+                    $(this).removeData('subcategory-ratio');
+                    $(this).removeAttr('data-subcategory-sizes');
+                    $(this).removeAttr('data-subcategory-ratio');
+                });
+            });
+
+            $(document).on('focusin focusout', '.item-row', function() {
+                updateOtbControl();
+            });
+
+            function savePoData(onSuccess, onError) {
+                let items = [];
+                $('.item-row').each(function() {
+                    let subcatId = $(this).find('.subcat-select').data('selected-value');
+                    if (!subcatId) return;
+
+                    let qty = parseInt($(this).find('.qty-input').val()) || 0;
+                    let price = parseFloat($(this).find('.price-input').val()) || 0;
+                    let discount = parseFloat($(this).find('.disc-input').val()) || 0;
+                    let sizeAllocations = $(this).data('size-allocations') || {};
+
+                    items.push({
+                        subcategory_id: subcatId,
+                        item_type: 'Fresh',
+                        order_qty: qty,
+                        unit_price: price,
+                        discount_percentage: discount,
+                        size_allocations: sizeAllocations
+                    });
+                });
+
+                let schedules = [];
+                $('.schedule-row').each(function() {
+                    let from = $(this).find('.sch-from').val();
+                    let to = $(this).find('.sch-to').val();
+                    if (from || to) {
+                        schedules.push({
+                            from: from,
+                            to: to,
+                            delivery_date: ''
+                        });
+                    }
+                });
+
+                let buyer = $('#poBuyer').data('selected-value') || '';
+                let agent = $('#poAgent').val().trim();
+                let remarks = $('#poNotesText').val().trim();
+                let poType = $('#poType').data('selected-value') || '';
+                let season = $('#poSeason').val().trim();
+                let poDate = $('#poDate').val();
+
+                showLoading();
+
+                $.ajax({
+                    url: URLS.savePo,
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        buyer: buyer,
+                        agent: agent,
+                        notes: remarks,
+                        delivery_schedules: schedules,
+                        items: items,
+                        po_type: poType,
+                        season: season,
+                        po_date: poDate
+                    }),
+                    success: function(res) {
+                        if (res.success) {
+                            if (onSuccess) onSuccess(res);
+                        } else {
+                            hideLoading();
+                            if (onError) onError(res.error || 'Failed to save PO');
+                            else showToast(res.error || 'Failed to save PO', 'danger');
+                        }
+                    },
+                    error: function() {
+                        hideLoading();
+                        if (onError) onError('Communication error occurred while saving PO');
+                        else showToast('Communication error occurred while saving PO', 'danger');
+                    }
+                });
+            }
+
+            $('#poVendorSelect').on('change', function() {
+                let vendorId = $(this).data('selected-value');
+                
+                if (vendorId) {
+                    updateVendorDetailsUI($(this).data());
+                } else {
+                    updateVendorDetailsUI(null);
+                }
+                
+                saveHeaderField('vendor', vendorId || '');
+            });
+
+            $('#addScheduleBtn').on('click', function() {
+                addSchedule();
+                renumberSchedules();
+            });
+
+            $(document).on('click', '.remove-schedule-btn', function() {
+                $(this).closest('.schedule-row').remove();
+                renumberSchedules();
+            });
+
+            $('#poNotesText').on('input', function() {
+                countWords();
+            });
+
+            function hasValidItems() {
+                let count = 0;
+                $('.item-row').each(function() {
+                    let subcatId = $(this).find('.subcat-select').data('selected-value');
+                    if (subcatId) {
+                        count++;
+                    }
+                });
+                return count > 0;
+            }
+
+            let isSaving = false;
+
+            function lockPoUI() {
+                isPoLocked = true;
+                $('.subcat-select, .qty-input, .price-input, .disc-input, #poBuyer, #poAgent, #poSeason, #poDate, #poVendorSelect, #poNotesText, .sch-from, .sch-to, #poRatioType').prop('disabled', true);
+                $('.remove-row-btn, .remove-schedule-btn, #addOrderRowBtn, #addScheduleBtn').prop('disabled', true);
+                $('#btnSavePo').prop('disabled', true).addClass('disabled').html('<i class="bi bi-check-circle"></i> Saved');
+                $('#btnEditPo').prop('disabled', true).addClass('disabled').html('<i class="bi bi-lock-fill"></i> Locked');
+                $('#btnPreviewPo').prop('disabled', true).addClass('disabled');
+                $('#btnSendPo').prop('disabled', true).addClass('disabled');
+            }
+
+            $('#btnSavePo').on('click', function() {
+                if (isPoLocked || isSaving) return;
+
+                if (!hasValidItems()) {
+                    showToast('Cannot save an empty Purchase Order. Please add at least one line item with a subcategory.', 'warning');
+                    return;
+                }
+
+                isSaving = true;
+                $('#btnSavePo').prop('disabled', true).addClass('disabled');
+                showLoading();
+                savePoData(function(res) {
+                    hideLoading();
+                    lockPoUI();
+                    showToast('Purchase Order saved successfully!');
+                    setTimeout(function() {
+                        window.location.href = "{% url 'all_records' %}";
+                    }, 1000);
+                }, function(err) {
+                    hideLoading();
+                    isSaving = false;
+                    $('#btnSavePo').prop('disabled', false).removeClass('disabled');
+                    showToast(err || 'Failed to save Purchase Order', 'danger');
+                });
+            });
+
+            $('#btnEditPo').on('click', function() {
+                if (isSaving) return;
+                isPoLocked = !isPoLocked;
+                $('.subcat-select, .qty-input, .price-input, .disc-input, #poBuyer, #poAgent, #poSeason, #poDate, #poVendorSelect, #poNotesText, .sch-from, .sch-to, #poRatioType').prop('disabled', isPoLocked);
+                $('.remove-row-btn, .remove-schedule-btn, #addOrderRowBtn, #addScheduleBtn').prop('disabled', isPoLocked);
+                
+                if (isPoLocked) {
+                    $(this).html('<i class="bi bi-unlock"></i> Unlock PO').removeClass('action-btn-edit').css('background', 'var(--luxury-dark)');
+                    showToast('Purchase Order is now locked. Inputs are read-only.', 'info');
+                } else {
+                    $(this).html('<i class="bi bi-pencil-square"></i> Lock PO').css('background', '').addClass('action-btn-edit');
+                    showToast('Purchase Order is now unlocked. You can edit cells.', 'info');
+                }
+            });
+
+            $('#btnPreviewPo').on('click', function() {
+                if (isSaving) return;
+                if (!hasValidItems()) {
+                    showToast('Cannot preview an empty Purchase Order. Please add at least one line item with a subcategory.', 'warning');
+                    return;
+                }
+                isSaving = true;
+                showLoading();
+                savePoData(function(res) {
+                    hideLoading();
+                    lockPoUI();
+                    isSaving = false;
+                    if (res.po_number) {
+                        $('#poNumber').val(res.po_number);
+                    }
+                    window.open(URLS.previewPo, '_blank');
+                }, function(err) {
+                    hideLoading();
+                    isSaving = false;
+                    showToast(err || 'Failed to save PO before preview', 'danger');
+                });
+            });
+
+            $('#btnSendPo').on('click', function() {
+                if (isSaving) return;
+                if (!hasValidItems()) {
+                    showToast('Cannot send an empty Purchase Order. Please add at least one line item with a subcategory.', 'warning');
+                    return;
+                }
+                $('#sendPoModal').modal('show');
+            });
+
+            function sendNotification(method) {
+                let email = $('#sendEmailInput').val().trim();
+                let whatsapp = $('#sendWhatsappInput').val().trim();
+
+                if (method === 'email' && !email) {
+                    showToast('Please specify a valid Vendor Email ID', 'danger');
+                    return;
+                }
+                if (method === 'whatsapp' && !whatsapp) {
+                    showToast('Please specify a valid WhatsApp Number', 'danger');
+                    return;
+                }
+
+                $('#sendPoModal').modal('hide');
+                isSaving = true;
+                showLoading();
+
+                // Auto-save the PO first so the link renders the latest updates
+                savePoData(function(res) {
+                    hideLoading();
+                    lockPoUI();
+                    isSaving = false;
+                    if (res.po_number) {
+                        $('#poNumber').val(res.po_number);
+                    }
+                    
+                    let poNum = $('#poNumber').val() || 'Draft';
+                    let totalQty = $('#gridTotalQty').text() || '0';
+                    let totalAmt = $('#gridTotalAmt').text() || '₹0.00';
+                    let poLink = window.location.origin + URLS.previewPo;
+                    
+                    if (method === 'email') {
+                        let subject = `Purchase Order ${poNum} - Jeyarama Stores`;
+                        let body = `Dear Vendor,\n\nPlease find our Purchase Order details below:\n\nPO Number: ${poNum}\nTotal Quantity: ${totalQty}\nTotal Amount: ${totalAmt}\n\nYou can view or print the full Purchase Order document here:\n${poLink}\n\nPlease process this order at your earliest convenience.\n\nBest Regards,\nPurchase Department\nJeyarama Stores`;
+                        
+                        let gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                        window.open(gmailUrl, '_blank');
+                        showToast('Opening Gmail compose window...');
+                    } else if (method === 'whatsapp') {
+                        let cleanPhone = whatsapp.replace(/\D/g, '');
+                        // Handle default country code if not present (assuming India +91 if length is 10 digits)
+                        if (cleanPhone.length === 10) {
+                            cleanPhone = '91' + cleanPhone;
+                        }
+                        let whatsappMsg = `Dear Vendor,\n\nPlease find our Purchase Order details:\n*PO Number:* ${poNum}\n*Total Qty:* ${totalQty}\n*Total Amount:* ${totalAmt}\n\nYou can view or print the full Purchase Order here:\n${poLink}\n\nPlease process this order. Thank you!`;
+                        
+                        let whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(whatsappMsg)}`;
+                        window.open(whatsappUrl, '_blank');
+                        showToast('Opening WhatsApp chat...');
+                    }
+                }, function(err) {
+                    hideLoading();
+                    isSaving = false;
+                    showToast(err || 'Failed to save PO before sending', 'danger');
+                });
+            }
+
+            $('#btnConfirmSendEmail').on('click', function() {
+                sendNotification('email');
+            });
+
+            $('#btnConfirmSendWhatsapp').on('click', function() {
+                sendNotification('whatsapp');
+            });
+
+            $('#btnRegisterPo').on('click', function() {
+                location.href = URLS.allRecords;
+            });
+
+            // Size Selection Modal Logic
+            window.activeRowForSizes = null;
+            window.activeSizesForModal = [];
+            window.activeRatioForModal = null;
+
+            window.openSizeModal = function(triggerEl, sizesList, ratioObj) {
+                if (isPoLocked) return;
+                let row = $(triggerEl).closest('tr');
+                window.activeRowForSizes = row;
+
+                if (!sizesList) {
+                    let cachedSizes = row.data('subcategory-sizes');
+                    let cachedRatio = row.data('subcategory-ratio');
+                    if (cachedSizes && cachedSizes.length > 0) {
+                        window.openSizeModal(row, cachedSizes, cachedRatio);
+                        return;
+                    }
+
+                    let subcatId = row.find('.subcat-select').attr('data-selected-value') || row.find('.subcat-select').data('selected-value');
+                    if (!subcatId) {
+                        showToast('Please select a subcategory first.', 'warning');
+                        return;
+                    }
+                    let vendorId = $('#poVendorSelect').attr('data-selected-value') || $('#poVendorSelect').data('selected-value') || '';
+                    let buyerId = $('#poBuyer').attr('data-selected-value') || $('#poBuyer').data('selected-value') || '';
+                    $.ajax({
+                        url: URLS.subcategorySizes.replace('__ID__', encodeURIComponent(subcatId)),
+                        method: 'GET',
+                        data: { 
+                            vendor_id: vendorId, 
+                            buyer_id: buyerId,
+                            ratio_type_id: $('#poRatioType').attr('data-selected-value') || $('#poRatioType').data('selected-value') || ''
+                        },
+                        success: function(res) {
+                            if (res.success && res.sizes && res.sizes.length > 0) {
+                                row.data('subcategory-sizes', res.sizes);
+                                row.data('subcategory-ratio', res.ratio);
+                                window.openSizeModal(row, res.sizes, res.ratio);
+                            } else {
+                                showToast('This subcategory has no sizes defined.', 'info');
+                            }
+                        }
+                    });
+                    return;
+                }
+
+                window.activeSizesForModal = sizesList;
+                window.activeRatioForModal = ratioObj || null;
+
+                // Show or hide ratio indicator badge
+                let indicator = $('#modalRatioIndicator');
+                if (ratioObj) {
+                    let parts = [];
+                    sizesList.forEach(function(s) {
+                        if (ratioObj[s.name] !== undefined && ratioObj[s.name] > 0) {
+                            parts.push(s.name + ':' + ratioObj[s.name]);
+                        }
+                    });
+                    if (parts.length > 0) {
+                        indicator.text('Ratio: ' + parts.join(', ')).removeClass('d-none');
+                    } else {
+                        indicator.addClass('d-none');
+                    }
+                } else {
+                    indicator.addClass('d-none');
+                }
+
+                let container = $('#modalSizeInputsContainer');
+                container.empty();
+
+                let existingAlloc = row.data('size-allocations') || {};
+                let currentTotQty = parseInt(row.find('.qty-input').val()) || 0;
+
+                $('#modalTotalQty').val(currentTotQty || '');
+                $('#sizeLimitWarning').addClass('d-none');
+
+                // Compute admin approved qty limit for this row's price range
+                let approvedQty = 0, spentQty = 0, remainingQty = null;
+                let priceRanges = row.data('price-ranges') || [];
+                let rowPrice = parseFloat(row.find('.price-input').val()) || 0;
+                let matchedRange = findMatchingRange(priceRanges, rowPrice);
+                if (!matchedRange && priceRanges.length > 0) {
+                    // No price yet — sum all ranges
+                    approvedQty = priceRanges.reduce((s, r) => s + (r.approved_quantity || 0), 0);
+                    spentQty    = priceRanges.reduce((s, r) => s + (r.spent_quantity    || 0), 0);
+                } else if (matchedRange) {
+                    approvedQty = matchedRange.approved_quantity || 0;
+                    spentQty    = matchedRange.spent_quantity    || 0;
+                }
+                if (approvedQty > 0) {
+                    remainingQty = approvedQty - spentQty;
+                    $('#sizeApprovedQty').text(approvedQty);
+                    $('#sizeSpentQty').text(spentQty);
+                    $('#sizeRemainingQty').text(remainingQty).toggleClass('text-danger', remainingQty <= 0).toggleClass('text-success', remainingQty > 0);
+                    $('#sizeLimitMax').text(remainingQty);
+                    $('#sizeAdminLimitBar').css('display', 'flex');
+                } else {
+                    $('#sizeAdminLimitBar').css('display', 'none');
+                }
+                window.sizeApprovedMax = remainingQty; // null means no limit
+
+                sizesList.forEach(function(sizeObj) {
+                    let sizeName = sizeObj.name;
+                    let qty = existingAlloc[sizeName] || 0;
+                    container.append(`
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="fw-bold text-dark text-uppercase" style="width: 30%;">${sizeName}</span>
+                            <input type="number" class="form-control form-control-sm size-qty-input" data-size-name="${sizeName}" value="${qty}" min="0" style="width: 65%;">
+                        </div>
+                    `);
+                });
+
+                let sumExisting = Object.values(existingAlloc).reduce((a, b) => a + b, 0);
+                if (sumExisting !== currentTotQty) {
+                    distributeByRatio(currentTotQty, sizesList, window.activeRatioForModal);
+                }
+
+                $('#sizeSelectionModal').modal('show');
+            };
+
+            function distributeEqually(totalQty, sizesList) {
+                if (!sizesList || sizesList.length === 0) return;
+                let n = parseInt(totalQty) || 0;
+                let s = sizesList.length;
+                let base = Math.floor(n / s);
+                let remainder = n % s;
+
+                $('#modalSizeInputsContainer .size-qty-input').each(function(idx) {
+                    let allocated = base;
+                    if (idx < remainder) {
+                        allocated += 1;
+                    }
+                    $(this).val(allocated);
+                });
+            }
+
+            function distributeByRatio(totalQty, sizesList, ratioObj) {
+                if (!sizesList || sizesList.length === 0) return;
+                if (!ratioObj) {
+                    distributeEqually(totalQty, sizesList);
+                    return;
+                }
+
+                let totalParts = 0;
+                sizesList.forEach(function(sizeObj) {
+                    let p = parseInt(ratioObj[sizeObj.name]);
+                    if (isNaN(p) || p < 0) p = 0;
+                    totalParts += p;
+                });
+
+                if (totalParts === 0) {
+                    distributeEqually(totalQty, sizesList);
+                    return;
+                }
+
+                let n = parseInt(totalQty) || 0;
+                let allocations = {};
+                let remainders = [];
+                let allocatedSum = 0;
+
+                sizesList.forEach(function(sizeObj, idx) {
+                    let sizeName = sizeObj.name;
+                    let part = parseInt(ratioObj[sizeName]);
+                    if (isNaN(part) || part < 0) part = 0;
+
+                    let target = (part / totalParts) * n;
+                    let base = Math.floor(target);
+                    let rem = target - base;
+
+                    allocations[sizeName] = base;
+                    allocatedSum += base;
+
+                    remainders.push({
+                        index: idx,
+                        name: sizeName,
+                        remainder: rem
+                    });
+                });
+
+                let leftover = n - allocatedSum;
+                remainders.sort(function(a, b) {
+                    if (b.remainder !== a.remainder) {
+                        return b.remainder - a.remainder;
+                    }
+                    return a.index - b.index;
+                });
+
+                for (let i = 0; i < leftover; i++) {
+                    if (i < remainders.length) {
+                        allocations[remainders[i].name] += 1;
+                    }
+                }
+
+                $('#modalSizeInputsContainer .size-qty-input').each(function() {
+                    let sizeName = $(this).data('size-name');
+                    let qty = allocations[sizeName] !== undefined ? allocations[sizeName] : 0;
+                    $(this).val(qty);
+                });
+            }
+
+            $(document).on('input', '#modalTotalQty', function() {
+                let totalQty = parseInt($(this).val()) || 0;
+                const max = window.sizeApprovedMax;
+
+                // Enforce admin limit
+                if (max !== null && totalQty > max) {
+                    $(this).val(max);
+                    totalQty = max;
+                    $('#sizeLimitWarning').removeClass('d-none');
+                    $('#sizeRemainingQty').text(0).addClass('text-danger').removeClass('text-success');
+                } else {
+                    $('#sizeLimitWarning').addClass('d-none');
+                    if (max !== null) {
+                        let rem = max - totalQty;
+                        $('#sizeRemainingQty').text(rem).toggleClass('text-danger', rem < 0).toggleClass('text-success', rem >= 0);
+                    }
+                }
+                distributeByRatio(totalQty, window.activeSizesForModal, window.activeRatioForModal);
+            });
+
+            $(document).on('input', '.size-qty-input', function() {
+                let sum = 0;
+                $('#modalSizeInputsContainer .size-qty-input').each(function() {
+                    sum += parseInt($(this).val()) || 0;
+                });
+
+                const max = window.sizeApprovedMax;
+                if (max !== null && sum > max) {
+                    let currentVal = parseInt($(this).val()) || 0;
+                    let excess = sum - max;
+                    let cappedVal = Math.max(0, currentVal - excess);
+                    $(this).val(cappedVal);
+                    sum = max;
+                    $('#sizeLimitWarning').removeClass('d-none');
+                } else {
+                    $('#sizeLimitWarning').addClass('d-none');
+                }
+
+                $('#modalTotalQty').val(sum);
+                if (max !== null) {
+                    let rem = max - sum;
+                    $('#sizeRemainingQty').text(rem).toggleClass('text-danger', rem < 0).toggleClass('text-success', rem >= 0);
+                }
+            });
+
+            $(document).on('keypress', '#modalTotalQty, .size-qty-input', function(e) {
+                if (e.which === 13) {
+                    e.preventDefault();
+                    $('#btnConfirmSizes').click();
+                }
+            });
+
+            $('#btnConfirmSizes').on('click', function() {
+                let alloc = {};
+                let sum = 0;
+
+                $('#modalSizeInputsContainer .size-qty-input').each(function() {
+                    let sizeName = $(this).data('size-name');
+                    let qty = parseInt($(this).val()) || 0;
+                    if (qty > 0) {
+                        alloc[sizeName] = qty;
+                    }
+                    sum += qty;
+                });
+
+                // Block if over admin limit
+                const max = window.sizeApprovedMax;
+                if (max !== null && sum > max) {
+                    $('#sizeLimitWarning').removeClass('d-none');
+                    $('#sizeLimitMax').text(max);
+                    return;
+                }
+
+                if (window.activeRowForSizes) {
+                    window.activeRowForSizes.data('size-allocations', alloc);
+                    window.activeRowForSizes.find('.size-allocation-text').html(formatSizesHtml(alloc));
+
+                    window.activeRowForSizes.find('.qty-input').val(sum).trigger('input');
+                    calculateGrandTotals();
+                    updateOtbControl();
+                }
+
+                $('#sizeSelectionModal').modal('hide');
+            });
+
+            // Initialize sizes from template data on page load
+            $('.item-row').each(function() {
+                let attrVal = $(this).attr('data-sizes-json');
+                if (attrVal) {
+                    try {
+                        let cleanJson = attrVal.replace(/'/g, '"');
+                        let sizes = JSON.parse(cleanJson);
+                        $(this).data('size-allocations', sizes);
+                    } catch(e) {
+                        console.error('Failed to parse size allocations for row:', e);
+                        $(this).data('size-allocations', {});
+                    }
+                } else {
                     $(this).data('size-allocations', {});
                 }
-            } else {
-                $(this).data('size-allocations', {});
-            }
+            });
         });
-    });
-</script>
-{% endblock %}
+    </script>
+    {% endblock %}  

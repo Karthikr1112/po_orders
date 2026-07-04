@@ -200,12 +200,12 @@
   <div class="overall-strip d-flex flex-wrap gap-4 align-items-center">
     <div>
       <div style="font-size:.75rem; opacity:.8; font-weight:600; text-transform:uppercase; letter-spacing:.07em;">Overall Budget Used</div>
-      <div style="font-size:2rem; font-weight:800; line-height:1.1;">{{ overall_pct }}%</div>
+      <div style="font-size:2rem; font-weight:800; line-height:1.1;">{% if has_season_filter %}{{ overall_pct }}%{% else %}—{% endif %}</div>
     </div>
     <div style="width:1px; height:48px; background:rgba(255,255,255,.2);"></div>
     <div>
       <div style="font-size:.75rem; opacity:.8; font-weight:600;">Approved</div>
-      <div style="font-size:1.2rem; font-weight:700;">₹{{ total_approved|floatformat:0 }}</div>
+      <div style="font-size:1.2rem; font-weight:700;">₹{% if has_season_filter %}{{ total_approved|floatformat:0 }}{% else %}—{% endif %}</div>
     </div>
     <div>
       <div style="font-size:.75rem; opacity:.8; font-weight:600;">Spent</div>
@@ -213,7 +213,7 @@
     </div>
     <div>
       <div style="font-size:.75rem; opacity:.8; font-weight:600;">Balance</div>
-      <div style="font-size:1.2rem; font-weight:700;">₹{{ total_approved|add:0|floatformat:0 }}</div>
+      <div style="font-size:1.2rem; font-weight:700;">₹{% if has_season_filter %}{{ total_balance|floatformat:0 }}{% else %}—{% endif %}</div>
     </div>
     {% if buyer_name %}
     <div class="ms-auto d-flex align-items-center gap-2">
@@ -274,7 +274,7 @@
             <i class="bi bi-pie-chart text-white"></i>
           </div>
           <div>
-            <div class="stat-val">{{ overall_pct }}%</div>
+            <div class="stat-val">{% if has_season_filter %}{{ overall_pct }}%{% else %}—{% endif %}</div>
             <div class="stat-lbl">Budget Used</div>
           </div>
         </div>
@@ -316,7 +316,7 @@
   </div>
 
   <!-- Chart 1: Budget Health Horizontal Bar -->
-  {% if budget_health %}
+  {% if budget_health and has_season_filter %}
   <div class="rpt-box mb-4">
     <div class="sec-title"><i class="bi bi-bar-chart-horizontal" style="color:#4f46e5;"></i> Budget — Approved vs Spent per SubCategory</div>
     <canvas id="budgetBarChart" style="max-height:320px;"></canvas>
@@ -350,17 +350,21 @@
           <tr>
             <td class="fw-600">{{ b.subcat }}</td>
             <td><span style="background:#f1f5f9;border-radius:6px;padding:.15em .5em;font-size:.8rem;font-weight:600;">{{ b.ch4_code }}</span></td>
-            <td class="text-end">{{ b.approved|floatformat:0 }}</td>
+            <td class="text-end">{% if has_season_filter %}{{ b.approved|floatformat:0 }}{% else %}—{% endif %}</td>
             <td class="text-end fw-600">{{ b.spent|floatformat:0 }}</td>
             <td class="text-end">
-              {% if b.balance >= 0 %}
-                <span style="color:#10b981;font-weight:700;">{{ b.balance|floatformat:0 }}</span>
+              {% if has_season_filter %}
+                {% if b.balance >= 0 %}
+                  <span style="color:#10b981;font-weight:700;">{{ b.balance|floatformat:0 }}</span>
+                {% else %}
+                  <span style="color:#ef4444;font-weight:700;">{{ b.balance|floatformat:0 }}</span>
+                {% endif %}
               {% else %}
-                <span style="color:#ef4444;font-weight:700;">{{ b.balance|floatformat:0 }}</span>
+                —
               {% endif %}
             </td>
             <td>
-              {% if b.approved %}
+              {% if has_season_filter and b.approved %}
               <div class="d-flex align-items-center gap-2">
                 <div class="bbar-wrap">
                   <div class="bbar {% if b.pct >= 90 %}bbar-r{% elif b.pct >= 70 %}bbar-y{% else %}bbar-g{% endif %}"
@@ -383,6 +387,63 @@
     <p class="text-muted text-center py-3">No subcategories linked to this buyer.</p>
     {% endif %}
   </div>
+
+  <!-- SECTION 1B: BUDGET DETAILS BREAKDOWN -->
+  {% if buyer_name and budget_details %}
+  <div class="rpt-box mb-4">
+    <div class="sec-title"><i class="bi bi-grid-fill" style="color:#4f46e5;"></i> Budget Details Breakdown (Price Range Wise)</div>
+    <div class="table-responsive">
+      <table class="table table-sheet mb-0" id="budgetDetailsTable">
+        <thead>
+          <tr>
+            <th>SubCategory</th>
+            <th>CH4 Code</th>
+            <th class="text-center">Sales Range (₹)</th>
+            <th class="text-center">Buying Range (₹)</th>
+            <th class="text-end">Approved Budget (₹)</th>
+            <th class="text-end">Quantity Set</th>
+            <th class="text-end">Spent Amount (₹)</th>
+            <th class="text-end">Spent Qty</th>
+            <th class="text-end">Balance (₹)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for bd in budget_details %}
+          <tr>
+            <td class="fw-600">{{ bd.subcat }}</td>
+            <td><span style="background:#f1f5f9;border-radius:6px;padding:.15em .5em;font-size:.8rem;font-weight:600;">{{ bd.ch4_code }}</span></td>
+            <td class="text-center">
+              <span style="background:#d1fae5; color:#065f46; border-radius:99px; padding:.2em .65em; font-size:.75rem; font-weight:700;">
+                {{ bd.sales_range }}
+              </span>
+            </td>
+            <td class="text-center">
+              <span style="background:#dbeafe; color:#1e40af; border-radius:99px; padding:.2em .65em; font-size:.75rem; font-weight:700;">
+                {{ bd.buying_range }}
+              </span>
+            </td>
+            <td class="text-end fw-semibold">{% if has_season_filter %}₹{{ bd.approved_amount|floatformat:2 }}{% else %}—{% endif %}</td>
+            <td class="text-end">{% if has_season_filter %}{{ bd.approved_quantity }}{% else %}—{% endif %}</td>
+            <td class="text-end fw-semibold text-warning">₹{{ bd.spent_amount|floatformat:2 }}</td>
+            <td class="text-end">{{ bd.spent_quantity }}</td>
+            <td class="text-end">
+              {% if has_season_filter %}
+                {% if bd.balance >= 0 %}
+                  <span style="color:#10b981;font-weight:700;">₹{{ bd.balance|floatformat:2 }}</span>
+                {% else %}
+                  <span style="color:#ef4444;font-weight:700;">₹{{ bd.balance|floatformat:2 }}</span>
+                {% endif %}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
 
   <!-- SECTION 2: SUBCATEGORY BREAKDOWN -->
   <div class="rpt-box mb-4">
@@ -441,7 +502,6 @@
           <tr>
             <th>PO Number</th>
             <th>Date</th>
-            <th>Type</th>
             <th>Season</th>
             <th>Buyer</th>
             <th>Vendor</th>
@@ -458,9 +518,6 @@
               </span>
             </td>
             <td style="color:#64748b;">{{ po.po_date }}</td>
-            <td>
-              <span style="background:#f1f5f9;border-radius:6px;padding:.15em .5em;font-size:.8rem;font-weight:600;">{{ po.po_type }}</span>
-            </td>
             <td>{{ po.season|default:"—" }}</td>
             <td>
               <div class="d-flex align-items-center gap-2">
@@ -503,6 +560,16 @@ $(document).ready(function() {
       pageLength: 15,
       order: [[1, 'desc']],
       language: { search: 'Search POs:' },
+      dom: '<"d-flex justify-content-between align-items-center mb-2"lf>rtip',
+    });
+  }
+
+  // DataTable for Budget Details breakdown
+  if ($('#budgetDetailsTable tbody tr').length > 5) {
+    $('#budgetDetailsTable').DataTable({
+      pageLength: 15,
+      order: [[0, 'asc']],
+      language: { search: 'Search Details:' },
       dom: '<"d-flex justify-content-between align-items-center mb-2"lf>rtip',
     });
   }
